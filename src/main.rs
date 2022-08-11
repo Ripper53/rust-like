@@ -14,13 +14,13 @@ fn setup(mut commands: Commands) {
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let mut app = App::new();
-    app
-        .init_resource::<Map::<X, Y>>()
-        .add_startup_system(setup)
-        .add_system(physics_update::<X, Y>);
 
-    setup_game::<X, Y>(&mut app).expect("Game setup completed.");
+    setup_game::<X, Y>(
+        App::new()
+            .init_resource::<Map::<X, Y>>()
+            .add_startup_system(setup)
+            .add_system(physics_update::<X, Y>)
+    )?;
 
     Ok(())
 }

@@ -6,7 +6,7 @@ use crossterm::{
     execute,
     style::{Color, Print, SetForegroundColor, SetBackgroundColor, ResetColor}, terminal::{enable_raw_mode, disable_raw_mode}, event,
 };
-use tui::{backend::CrosstermBackend, Terminal, layout::{Layout, Constraint}, widgets::{Paragraph, Block, Borders, Tabs, canvas::{Canvas, MapResolution, Context}}, style::{Style, Modifier}, text::{Spans, Span}};
+use tui::{backend::CrosstermBackend, Terminal, layout::{Layout, Constraint}, widgets::{Paragraph, Block, Borders, Tabs, canvas::{Canvas, Context}}, style::{Style, Modifier}, text::{Spans, Span}};
 
 enum Event<I> {
     Input(I),
@@ -44,16 +44,14 @@ fn setup_terminal() -> Result<Receiver<Event<event::Event>>, Box<dyn std::error:
 
 #[derive(Clone, Copy)]
 enum Menu {
-    Home,
     World,
     Inventory,
 }
 impl From<Menu> for usize {
     fn from(input: Menu) -> Self {
         match input {
-            Menu::Home => 0,
-            Menu::World => 1,
-            Menu::Inventory => 2,
+            Menu::World => 0,
+            Menu::Inventory => 1,
         }
     }
 }
@@ -70,8 +68,8 @@ pub fn setup_game<const X: usize, const Y: usize>(app: &mut App) -> Result<(), B
     let mut terminal = Terminal::new(backend)?;
     terminal.clear()?;
 
-    let menu_titles = vec!["Home", "World", "Inventory"];
-    let mut active_menu_item = Menu::Home;
+    let menu_titles = vec!["World", "Inventory"];
+    let mut active_menu_item = Menu::World;
 
     // Render
     loop {
@@ -120,24 +118,19 @@ pub fn setup_game<const X: usize, const Y: usize>(app: &mut App) -> Result<(), B
             // Main View
             match active_menu_item {
                 Menu::World => {
-                    app.run();
-
-                let canvas = Canvas::default()
-                    .block(Block::default().borders(Borders::ALL).title("World"))
-                    .paint(|ctx| {
-                        ctx.draw(&tui::widgets::canvas::Map {
-                            color: tui::style::Color::White,
-                            resolution: MapResolution::High,
-                        });
-                        if let Some(map) = app.world.get_resource::<Map<X, Y>>() {
+                    let canvas = Canvas::default()
+                        .block(Block::default().borders(Borders::ALL).title("World"))
+                        .paint(|ctx| {
+                            let map = app.world.resource::<Map::<X, Y>>();
+                            let get_style = || Style::default().fg(tui::style::Color::Yellow);
                             let mut x: usize = 0;
                             let mut y: usize = 0;
                             while x < X {
                                 while y < Y {
                                     if let Some(tile) = map.get(x, y) {
                                         match tile {
-                                            Tile::Ground => ctx.print(x as f64, y as f64, Spans::from(vec![Span::styled("%", Style::default())])),
-                                            Tile::Wall => ctx.print(x as f64, y as f64, Spans::from(vec![Span::styled("#", Style::default())])),
+                                            Tile::Ground => ctx.print(x as f64, y as f64, Span::styled("%", get_style())),
+                                            Tile::Wall => ctx.print(x as f64, y as f64, Span::styled("#", get_style())),
                                         }
                                     }
                                     y += 1;
@@ -145,16 +138,13 @@ pub fn setup_game<const X: usize, const Y: usize>(app: &mut App) -> Result<(), B
                                 x += 1;
                                 y = 0;
                             }
-                        }
-                    })
-                    .x_bounds([0.0, X as f64])
-                    .y_bounds([0.0, Y as f64]);
+                        })
+                        .x_bounds([0.0, X as f64])
+                        .y_bounds([0.0, Y as f64]);
 
                     rect.render_widget(canvas, chunks[1]);
                 },
                 Menu::Inventory => rect.render_widget(render_inventory(), chunks[1]),
-
-                Menu::Home => rect.render_widget(render_home(), chunks[1]),
             }
         })?;
 
