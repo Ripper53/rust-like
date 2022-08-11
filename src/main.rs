@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use client::render::*;
 use common::{physics::*, character::*};
 
-const X: usize = 30;
+const X: usize = 60;
 const Y: usize = 30;
 
 fn setup(mut commands: Commands) {

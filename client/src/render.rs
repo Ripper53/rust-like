@@ -98,7 +98,7 @@ pub fn setup_game<const X: usize, const Y: usize>(app: &mut App) -> Result<(), B
                         Span::styled(
                             first,
                             Style::default()
-                                .fg(tui::style::Color::Yellow)
+                                .fg(tui::style::Color::LightBlue)
                                 .add_modifier(Modifier::UNDERLINED),
                         ),
                         Span::styled(rest, Style::default().fg(tui::style::Color::White)),
@@ -118,31 +118,28 @@ pub fn setup_game<const X: usize, const Y: usize>(app: &mut App) -> Result<(), B
             // Main View
             match active_menu_item {
                 Menu::World => {
-                    let canvas = Canvas::default()
-                        .block(Block::default().borders(Borders::ALL).title("World"))
-                        .paint(|ctx| {
-                            let map = app.world.resource::<Map::<X, Y>>();
-                            let get_style = || Style::default().fg(tui::style::Color::Yellow);
-                            let mut x: usize = 0;
-                            let mut y: usize = 0;
-                            while x < X {
-                                while y < Y {
-                                    if let Some(tile) = map.get(x, y) {
-                                        match tile {
-                                            Tile::Ground => ctx.print(x as f64, y as f64, Span::styled("%", get_style())),
-                                            Tile::Wall => ctx.print(x as f64, y as f64, Span::styled("#", get_style())),
-                                        }
-                                    }
-                                    y += 1;
+                    let map = app.world.resource::<Map::<X, Y>>();
+                    let mut x = 0;
+                    let mut y = 0;
+                    let mut text = String::with_capacity((X * Y) + Y);
+                    while y < Y {
+                        while x < X {
+                            if let Some(tile) = map.get(x, y) {
+                                match tile {
+                                    Tile::Ground => text.push('%'),
+                                    Tile::Wall => text.push('#'),
                                 }
-                                x += 1;
-                                y = 0;
                             }
-                        })
-                        .x_bounds([0.0, X as f64])
-                        .y_bounds([0.0, Y as f64]);
+                            x += 1;
+                        }
+                        text.push('\n');
+                        x = 0;
+                        y += 1;
+                    }
+                    let p = Paragraph::new(text)
+                        .block(Block::default().borders(Borders::ALL).title("World"));
 
-                    rect.render_widget(canvas, chunks[1]);
+                    rect.render_widget(p, chunks[1]);
                 },
                 Menu::Inventory => rect.render_widget(render_inventory(), chunks[1]),
             }
@@ -154,8 +151,8 @@ pub fn setup_game<const X: usize, const Y: usize>(app: &mut App) -> Result<(), B
                     match key.code {
                         event::KeyCode::Esc => {
                             // Quit Game
-                            disable_raw_mode().expect("Disabled.");
-                            terminal.show_cursor().expect("Closed terminal.");
+                            disable_raw_mode()?;
+                            terminal.show_cursor()?;
                             break;
                         },
                         event::KeyCode::Char('w') => active_menu_item = Menu::World,
