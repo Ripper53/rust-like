@@ -11,3 +11,4 @@ tui = { version = "^0.18.0", default-features = false, features = ["crossterm", 
 ron = "^0.7.1"
 serde = { version = "^1.0", features = ["derive"] }
 bevy = "^0.8.0"
+pathfinding = "^3.0.13"

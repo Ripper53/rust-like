@@ -1,12 +1,11 @@
-use std::{io::{stdout, Stdout}, time::{Duration, Instant}, thread, sync::mpsc::Receiver};
+use std::{time::{Duration, Instant}, thread, sync::mpsc::Receiver};
 
-use bevy::prelude::{Query, Res, App};
-use common::{physics::*, character::*};
+use bevy::prelude::App;
+use common::physics::*;
 use crossterm::{
-    execute,
-    style::{Color, Print, SetForegroundColor, SetBackgroundColor, ResetColor}, terminal::{enable_raw_mode, disable_raw_mode}, event,
+    terminal::{enable_raw_mode, disable_raw_mode}, event,
 };
-use tui::{backend::CrosstermBackend, Terminal, layout::{Layout, Constraint}, widgets::{Paragraph, Block, Borders, Tabs, canvas::{Canvas, Context}}, style::{Style, Modifier}, text::{Spans, Span}};
+use tui::{backend::CrosstermBackend, Terminal, layout::{Layout, Constraint}, widgets::{Paragraph, Block, Borders, Tabs}, style::{Style, Modifier}, text::{Spans, Span}};
 
 enum Event<I> {
     Input(I),
@@ -118,7 +117,7 @@ pub fn setup_game<const X: usize, const Y: usize>(app: &mut App) -> Result<(), B
             // Main View
             match active_menu_item {
                 Menu::World => {
-                    let map = app.world.resource::<Map::<X, Y>>();
+                    let map = app.world.resource::<Map<X, Y>>();
                     let mut x = 0;
                     let mut y = 0;
                     let mut text = String::with_capacity((X * Y) + Y);

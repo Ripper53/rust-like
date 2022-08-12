@@ -1,3 +1,5 @@
+use std::hash::Hash;
+
 use bevy::prelude::*;
 use tui::widgets::canvas::Shape;
 
@@ -29,7 +31,7 @@ impl<const X: usize, const Y: usize> Shape for Map<X, Y> {
     }
 }
 
-#[derive(Clone, Component)]
+#[derive(Clone, Copy, Component)]
 pub struct Position {
     pub x: i32,
     pub y: i32,
@@ -39,10 +41,25 @@ impl Position {
         Position { x, y }
     }
 }
+impl Eq for Position {}
+impl PartialEq for Position {
+    fn eq(&self, other: &Self) -> bool {
+        self.x == other.x && self.y == other.y
+    }
+    fn ne(&self, other: &Self) -> bool {
+        self.x != other.x && self.y != other.y
+    }
+}
+impl Hash for Position {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.x.hash(state);
+        self.y.hash(state);
+    }
+}
 impl std::ops::Add for Position {
     type Output = Position;
     fn add(self, rhs: Self) -> Self::Output {
-        Position::new(self.x  + rhs.x, self.y + rhs.y)
+        Position::new(self.x + rhs.x, self.y + rhs.y)
     }
 }
 impl std::ops::Add<&Velocity> for Position {
@@ -55,6 +72,18 @@ impl std::ops::AddAssign<&Velocity> for Position {
     fn add_assign(&mut self, rhs: &Velocity) {
         self.x += rhs.x;
         self.y += rhs.y;
+    }
+}
+impl std::ops::Sub for Position {
+    type Output = Position;
+    fn sub(self, rhs: Self) -> Self::Output {
+        Position::new(self.x - rhs.x, self.y - rhs.y)
+    }
+}
+impl std::ops::Sub for &Position {
+    type Output = Position;
+    fn sub(self, rhs: Self) -> Self::Output {
+        Position::new(self.x - rhs.x, self.y - rhs.y)
     }
 }
 impl std::ops::Mul for Position {
