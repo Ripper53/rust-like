@@ -4,7 +4,12 @@ use pathfinding::prelude::astar;
 
 #[derive(Component)]
 pub struct Brain {
-    behaviors: Vec::<Behavior>,
+    behaviors: Vec<Behavior>,
+}
+impl Brain {
+    pub fn new(behaviors: Vec<Behavior>) -> Brain {
+        Brain { behaviors }
+    }
 }
 
 pub enum Behavior {

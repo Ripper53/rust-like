@@ -62,6 +62,12 @@ impl std::ops::Add for Position {
         Position::new(self.x + rhs.x, self.y + rhs.y)
     }
 }
+impl std::ops::AddAssign for Position {
+    fn add_assign(&mut self, rhs: Position) {
+        self.x += rhs.x;
+        self.y += rhs.y;
+    }
+}
 impl std::ops::Add<&Velocity> for Position {
     type Output = Position;
     fn add(self, rhs: &Velocity) -> Position {

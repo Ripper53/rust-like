@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use client::render::*;
-use common::{physics::*, character::*, brain::brain_update};
+use common::{physics::*, character::*};
 
 const X: usize = 60;
 const Y: usize = 30;
@@ -17,9 +17,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     setup_game::<X, Y>(
         App::new()
-            .init_resource::<Map::<X, Y>>()
+            .init_resource::<Map<X, Y>>()
             .add_startup_system(setup)
-            .add_system(brain_update)
+            .add_system(common::map_brain::brain_update)
+            .add_system(common::battle_brain::brain_update)
             .add_system(physics_update::<X, Y>)
     )?;
 
