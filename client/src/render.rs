@@ -1,7 +1,7 @@
 use std::{time::{Duration, Instant}, thread, sync::mpsc::Receiver};
 
 use bevy::prelude::App;
-use common::physics::*;
+use common::{physics::*, character::{PlayerInput, MovementInput}};
 use crossterm::{
     terminal::{enable_raw_mode, disable_raw_mode}, event,
 };
@@ -45,12 +45,14 @@ fn setup_terminal() -> Result<Receiver<Event<event::Event>>, Box<dyn std::error:
 enum Menu {
     World,
     Inventory,
+    Settings,
 }
 impl From<Menu> for usize {
     fn from(input: Menu) -> Self {
         match input {
             Menu::World => 0,
             Menu::Inventory => 1,
+            Menu::Settings => 2,
         }
     }
 }
@@ -59,7 +61,10 @@ fn render_home<'a>() -> Block<'a> { Block::default() }
 
 fn render_inventory<'a>() -> Block<'a> { Block::default() }
 
-pub fn setup_game<const X: usize, const Y: usize>(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
+pub fn runner<const X: usize, const Y: usize>(mut app: App) {
+    setup_game::<X, Y>(&mut app).expect("setup_game");
+}
+fn setup_game<const X: usize, const Y: usize>(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     // Input
     let rx = setup_terminal()?;
     let stdout = std::io::stdout();
@@ -67,7 +72,7 @@ pub fn setup_game<const X: usize, const Y: usize>(app: &mut App) -> Result<(), B
     let mut terminal = Terminal::new(backend)?;
     terminal.clear()?;
 
-    let menu_titles = vec!["World", "Inventory"];
+    let menu_titles = vec!["World", "Inventory", "Settings"];
     let mut active_menu_item = Menu::World;
 
     // Render
@@ -123,9 +128,15 @@ pub fn setup_game<const X: usize, const Y: usize>(app: &mut App) -> Result<(), B
                     let mut text = String::with_capacity((X * Y) + Y);
                     while y < Y {
                         while x < X {
-                            if let Some(tile) = map.get(x, y) {
+                            if let Some(tile) = map.get(x, Y - 1 - y) {
                                 match tile {
-                                    Tile::Ground => text.push('%'),
+                                    Tile::Ground(sprite_option) => {
+                                        if let Some(sprite) = sprite_option {
+                                            text.push(sprite.character);
+                                        } else {
+                                            text.push('%');
+                                        }
+                                    },
                                     Tile::Wall => text.push('#'),
                                 }
                             }
@@ -141,22 +152,64 @@ pub fn setup_game<const X: usize, const Y: usize>(app: &mut App) -> Result<(), B
                     rect.render_widget(p, chunks[1]);
                 },
                 Menu::Inventory => rect.render_widget(render_inventory(), chunks[1]),
+                Menu::Settings => {},
             }
         })?;
 
         match rx.recv()? {
             Event::Input(input) => {
                 if let event::Event::Key(key) = input {
-                    match key.code {
-                        event::KeyCode::Esc => {
-                            // Quit Game
-                            disable_raw_mode()?;
-                            terminal.show_cursor()?;
-                            break;
+                    let switch_menu = |a: &mut Menu| {
+                        match key.code {
+                            event::KeyCode::Char('w') => *a = Menu::World,
+                            event::KeyCode::Char('i') => *a = Menu::Inventory,
+                            event::KeyCode::Char('s') => *a = Menu::Settings,
+                            _ => {},
+                        }
+                    };
+                    match active_menu_item {
+                        Menu::World => {
+                            let mut set_player_input_movement = |movement_input: MovementInput| {
+                                {
+                                    let mut player_input = app.world.resource_mut::<PlayerInput>();
+                                    (*player_input).input_movement = movement_input;
+                                }
+                                app.update();
+                                let mut player_input = app.world.resource_mut::<PlayerInput>();
+                                (*player_input).input_movement = MovementInput::Idle;
+                            };
+                            match key.code {
+                                event::KeyCode::Up => {
+                                    set_player_input_movement(MovementInput::North);
+                                },
+                                event::KeyCode::Right => {
+                                    set_player_input_movement(MovementInput::East);
+                                },
+                                event::KeyCode::Down => {
+                                    set_player_input_movement(MovementInput::South);
+                                },
+                                event::KeyCode::Left => {
+                                    set_player_input_movement(MovementInput::West);
+                                },
+                                _ => switch_menu(&mut active_menu_item),
+                            }
                         },
-                        event::KeyCode::Char('w') => active_menu_item = Menu::World,
-                        event::KeyCode::Char('i') => active_menu_item = Menu::Inventory,
-                        _ => {},
+                        Menu::Inventory => {
+                            match key.code {
+                                _ => switch_menu(&mut active_menu_item),
+                            }
+                        },
+                        Menu::Settings => {
+                            match key.code {
+                                event::KeyCode::Esc => {
+                                    // Quit Game
+                                    disable_raw_mode()?;
+                                    terminal.show_cursor()?;
+                                    break;
+                                },
+                                _ => switch_menu(&mut active_menu_item),
+                            }
+                        },
                     }
                 }
             },

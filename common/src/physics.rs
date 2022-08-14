@@ -1,11 +1,11 @@
 use std::hash::Hash;
-
 use bevy::prelude::*;
-use tui::widgets::canvas::Shape;
+use crate::character::CharacterBundle;
 
+/// Enum value true if space is occupied, otherwise false.
 #[derive(Clone)]
 pub enum Tile {
-    Ground,
+    Ground(Option<crate::character::Sprite>),
     Wall,
 }
 pub struct Map<const X: usize, const Y: usize> {
@@ -14,24 +14,61 @@ pub struct Map<const X: usize, const Y: usize> {
 impl<const X: usize, const Y: usize> Map<X, Y> {
     pub fn new() -> Map<X, Y> {
         Map::<X, Y> {
-            values: vec![Tile::Ground; X * Y]
+            values: vec![Tile::Ground(None); X * Y]
         }
     }
+    pub fn spawn_character(&mut self, sprite: crate::character::Sprite, position: Position, velocity: Velocity) -> Option<CharacterBundle> {
+        if let Some(tile) = self.get_mut(position.x as usize, position.y as usize) {
+            if let Tile::Ground(ref mut sprite_option) = tile {
+                *sprite_option = Some(sprite);
+                return Some(CharacterBundle {
+                    input_data: crate::character::MovementInput::Idle,
+                    sprite,
+                    position,
+                    velocity,
+                });
+            }
+        }
+        None
+    }
     pub fn get(&self, x: usize, y: usize) -> Option<&Tile> {
-        self.values.get(x + (Y * y))
+        if x < X && y < Y {
+            self.values.get(x + (Y * y))
+        } else {
+            None
+        }
+    }
+    pub fn get_mut(&mut self, x: usize, y: usize) -> Option<&mut Tile> {
+        if x < X && y < Y {
+            self.values.get_mut(x + (Y * y))
+        } else {
+            None
+        }
     }
 }
 impl<const X: usize, const Y: usize> FromWorld for Map<X, Y> {
-    fn from_world(world: &mut World) -> Self {
+    fn from_world(_world: &mut World) -> Self {
         Map::<X, Y>::new()
     }
 }
-impl<const X: usize, const Y: usize> Shape for Map<X, Y> {
-    fn draw(&self, painter: &mut tui::widgets::canvas::Painter) {
+impl Position {
+    pub fn get_from_map<'a, const X: usize, const Y: usize>(&'a self, map: &'a Map<X, Y>) -> Option<&Tile> {
+        if self.x < 0 || self.y < 0 {
+            None
+        } else {
+            map.get(self.x as usize, self.y as usize)
+        }
+    }
+    pub fn get_mut_from_map<'a, const X: usize, const Y: usize>(&'a self, map: &'a mut Map<X, Y>) -> Option<&mut Tile> {
+        if self.x < 0 || self.y < 0 {
+            None
+        } else {
+            map.get_mut(self.x as usize, self.y as usize)
+        }
     }
 }
 
-#[derive(Clone, Copy, Component)]
+#[derive(Component, Clone, Copy)]
 pub struct Position {
     pub x: i32,
     pub y: i32,
@@ -114,7 +151,7 @@ pub fn physics_update<const X: usize, const Y: usize>(map: Res<Map<X, Y>>, mut q
     query.par_for_each_mut(32, |(mut pos, vel)| {
         let clone_pos = pos.clone() + vel;
         if let Some(tile) = map.get(clone_pos.x as usize, clone_pos.y as usize) {
-            if matches!(tile, Tile::Ground) {
+            if matches!(tile, Tile::Ground(_)) {
                 *pos += vel;
             }
         }
