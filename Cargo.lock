@@ -1042,6 +1042,7 @@ dependencies = [
  "bevy",
  "crossterm 0.24.0",
  "pathfinding",
+ "rand",
  "ron",
  "serde",
  "tui",

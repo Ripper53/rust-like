@@ -129,16 +129,17 @@ fn setup_game<const X: usize, const Y: usize>(app: &mut App) -> Result<(), Box<d
                     while y < Y {
                         while x < X {
                             if let Some(tile) = map.get(x, Y - 1 - y) {
-                                match tile {
+                                let character = match tile {
                                     Tile::Ground(sprite_option) => {
                                         if let Some(sprite) = sprite_option {
-                                            text.push(sprite.character);
+                                            sprite.character
                                         } else {
-                                            text.push('%');
+                                            '%'
                                         }
                                     },
-                                    Tile::Wall => text.push('#'),
-                                }
+                                    Tile::Wall => '#',
+                                };
+                                text.push(character);
                             }
                             x += 1;
                         }
@@ -179,18 +180,10 @@ fn setup_game<const X: usize, const Y: usize>(app: &mut App) -> Result<(), Box<d
                                 (*player_input).input_movement = MovementInput::Idle;
                             };
                             match key.code {
-                                event::KeyCode::Up => {
-                                    set_player_input_movement(MovementInput::North);
-                                },
-                                event::KeyCode::Right => {
-                                    set_player_input_movement(MovementInput::East);
-                                },
-                                event::KeyCode::Down => {
-                                    set_player_input_movement(MovementInput::South);
-                                },
-                                event::KeyCode::Left => {
-                                    set_player_input_movement(MovementInput::West);
-                                },
+                                event::KeyCode::Up => set_player_input_movement(MovementInput::North),
+                                event::KeyCode::Right => set_player_input_movement(MovementInput::East),
+                                event::KeyCode::Down => set_player_input_movement(MovementInput::South),
+                                event::KeyCode::Left => set_player_input_movement(MovementInput::West),
                                 _ => switch_menu(&mut active_menu_item),
                             }
                         },

@@ -1,6 +1,7 @@
 use std::hash::Hash;
 use bevy::prelude::*;
 use crate::character::CharacterBundle;
+use rand::prelude::*;
 
 /// Enum value true if space is occupied, otherwise false.
 #[derive(Clone)]
@@ -13,8 +14,17 @@ pub struct Map<const X: usize, const Y: usize> {
 }
 impl<const X: usize, const Y: usize> Map<X, Y> {
     pub fn new() -> Map<X, Y> {
+        let mut values = vec![Tile::Ground(None); X * Y];
+        let mut i = 0;
+        let mut rng = rand::thread_rng();
+        while i < X * Y {
+            if rng.gen::<f32>() < 0.2 {
+                values[i] = Tile::Wall;
+            }
+            i += 1;
+        }
         Map::<X, Y> {
-            values: vec![Tile::Ground(None); X * Y]
+            values
         }
     }
     pub fn spawn_character(&mut self, sprite: crate::character::Sprite, position: Position, velocity: Velocity) -> Option<CharacterBundle> {
