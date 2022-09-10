@@ -58,7 +58,7 @@ pub enum MovementInput {
 /// True if collided, otherwise set tile to occupied and return false.
 fn check_collision<const X: usize, const Y: usize>(map: &mut Map<X, Y>, current_position: &Position, new_position: &Position, sprite: Option<&Sprite>) -> bool {
     let mut place_character_at_new_position = || {
-        if let Some(Tile::Ground(ref mut value)) = new_position.get_mut_from_map::<X, Y>(map) {
+        if let Some(Tile::Ground { sprite: ref mut value, .. }) = new_position.get_mut_from_map::<X, Y>(map) {
             if value.is_none() {
                 *value = if let Some(s) = sprite {
                     Some(*s)
@@ -71,7 +71,7 @@ fn check_collision<const X: usize, const Y: usize>(map: &mut Map<X, Y>, current_
         false
     };
     if place_character_at_new_position() {
-        if let Some(Tile::Ground(ref mut old_value)) = current_position.get_mut_from_map::<X, Y>(map) {
+        if let Some(Tile::Ground { sprite: ref mut old_value, .. }) = current_position.get_mut_from_map::<X, Y>(map) {
             *old_value = None;
         }
         false

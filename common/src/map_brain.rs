@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::physics::*;
+use crate::{physics::*, character::MovementInput};
 use pathfinding::prelude::astar;
 
 #[derive(Component)]
@@ -12,41 +12,60 @@ impl Brain {
     }
 }
 
+#[derive(Default)]
+pub struct Pathfinder {
+    current_goal: Position,
+    last_goal: Position,
+    last_path: Vec<Position>,
+    path_index: usize,
+}
+impl Pathfinder {
+    fn execute(&mut self, movement_input: &mut MovementInput, position: &mut Position) {
+        // Check if new path needs to be calculated
+        if self.current_goal != self.last_goal {
+            self.path_index = 0;
+            self.current_goal = self.last_goal;
+            if let Some((path, _)) = astar(
+                position,
+                |p| p.successors(),
+                |p| p.distance(&self.current_goal),
+                |p| *p == self.current_goal,
+            ) {
+                self.last_path = path;
+            }
+        }
+
+        if let Some(target) = self.last_path.get(self.path_index) {
+            self.path_index += 1;
+            if target.y > position.y {
+                // UP
+                *movement_input = MovementInput::North;
+            } else if target.x > position.x {
+                // RIGHT
+                *movement_input = MovementInput::East;
+            } else if target.y < position.y {
+                // DOWN
+                *movement_input = MovementInput::South;
+            } else if target.x < position.x {
+                // LEFT
+                *movement_input = MovementInput::West;
+            }
+        }
+    }
+}
+
 pub enum Behavior {
-    Pathfinder {
-        current_goal: Position,
-        last_goal: Position,
-        last_path: Vec<Position>,
-        path_index: usize,
+    Lawyer {
+        pathfinder: Pathfinder,
     },
 }
 
 impl Behavior {
-    fn execute(&mut self, position: &mut Position, velocity: &mut Velocity) {
+    fn execute(&mut self, movement_input: &mut MovementInput, position: &mut Position, velocity: &mut Velocity) {
         match self {
-            Behavior::Pathfinder {
-                ref mut current_goal,
-                ref last_goal,
-                ref mut last_path,
-                ref mut path_index,
-            } => {
-                // Check if new path needs to be calculated
-                if current_goal != last_goal {
-                    *path_index = 0;
-                    *current_goal = *last_goal;
-                    if let Some((path, _)) = astar(
-                        &Position::new(position.x, position.y),
-                        |p| p.successors(),
-                        |p| p.distance(&current_goal),
-                        |p| *p == *current_goal,
-                    ) {
-                        *last_path = path;
-                    }
-                }
-
-                if let Some(p) = last_path.get(*path_index) {
-                    *path_index += 1;
-                }
+            Behavior::Lawyer { pathfinder } => {
+                pathfinder.current_goal = Position::new(8, 2);
+                pathfinder.execute(movement_input, position);
             },
         }
     }
@@ -64,10 +83,10 @@ impl Position {
     }
 }
 
-pub fn brain_update(mut query: Query<(&mut Brain, &mut Position, &mut Velocity)>) {
-    query.par_for_each_mut(32, |(mut brain, mut position, mut velocity)| {
+pub fn brain_update(mut query: Query<(&mut Brain, &mut MovementInput, &mut Position, &mut Velocity)>) {
+    query.par_for_each_mut(32, |(mut brain, mut movement_input, mut position, mut velocity)| {
         for behavior in brain.behaviors.iter_mut() {
-            behavior.execute(&mut position, &mut velocity);
+            behavior.execute(&mut movement_input, &mut position, &mut velocity);
         }
     });
 }

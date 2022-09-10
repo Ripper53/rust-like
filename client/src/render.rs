@@ -1,11 +1,18 @@
 use std::{time::{Duration, Instant}, thread, sync::mpsc::Receiver};
 
 use bevy::prelude::App;
-use common::{physics::*, character::{PlayerInput, MovementInput}};
+use common::{physics::*, character::{PlayerInput, MovementInput}, dialogue::Dialogue};
 use crossterm::{
     terminal::{enable_raw_mode, disable_raw_mode}, event,
 };
-use tui::{backend::CrosstermBackend, Terminal, layout::{Layout, Constraint}, widgets::{Paragraph, Block, Borders, Tabs}, style::{Style, Modifier}, text::{Spans, Span}};
+use tui::{
+    Terminal,
+    backend::CrosstermBackend,
+    layout::{Layout, Constraint},
+    widgets::{Paragraph, Block, Borders, Tabs},
+    style::{Style, Modifier},
+    text::{Spans, Span}
+};
 
 enum Event<I> {
     Input(I),
@@ -41,16 +48,17 @@ fn setup_terminal() -> Result<Receiver<Event<event::Event>>, Box<dyn std::error:
     Ok(rx)
 }
 
-#[derive(Clone, Copy)]
 enum Menu {
-    World,
+    World {
+        dialogue: Option<Dialogue>,
+    },
     Inventory,
     Settings,
 }
-impl From<Menu> for usize {
-    fn from(input: Menu) -> Self {
+impl From<&Menu> for usize {
+    fn from(input: &Menu) -> Self {
         match input {
-            Menu::World => 0,
+            Menu::World { .. } => 0,
             Menu::Inventory => 1,
             Menu::Settings => 2,
         }
@@ -73,7 +81,7 @@ fn setup_game<const X: usize, const Y: usize>(app: &mut App) -> Result<(), Box<d
     terminal.clear()?;
 
     let menu_titles = vec!["World", "Inventory", "Settings"];
-    let mut active_menu_item = Menu::World;
+    let mut active_menu_item = Menu::World { dialogue: None };
 
     // Render
     loop {
@@ -110,27 +118,16 @@ fn setup_game<const X: usize, const Y: usize>(app: &mut App) -> Result<(), Box<d
                 })
                 .collect();
 
-            let tabs = Tabs::new(menu)
-                .select(active_menu_item.into())
-                .block(Block::default().title("Menu").borders(Borders::ALL))
-                .style(Style::default().fg(tui::style::Color::White))
-                .highlight_style(Style::default().fg(tui::style::Color::Yellow))
-                .divider(Span::raw("|"));
-
-            rect.render_widget(tabs, chunks[0]);
-
             // Main View
             match active_menu_item {
-                Menu::World => {
+                Menu::World { .. } => {
                     let map = app.world.resource::<Map<X, Y>>();
-                    let mut x = 0;
-                    let mut y = 0;
                     let mut text = String::with_capacity((X * Y) + Y);
-                    while y < Y {
-                        while x < X {
+                    for y in 0..Y {
+                        for x in 0..X {
                             if let Some(tile) = map.get(x, Y - 1 - y) {
                                 let character = match tile {
-                                    Tile::Ground(sprite_option) => {
+                                    Tile::Ground { sprite: sprite_option, .. } => {
                                         if let Some(sprite) = sprite_option {
                                             sprite.character
                                         } else {
@@ -141,11 +138,8 @@ fn setup_game<const X: usize, const Y: usize>(app: &mut App) -> Result<(), Box<d
                                 };
                                 text.push(character);
                             }
-                            x += 1;
                         }
                         text.push('\n');
-                        x = 0;
-                        y += 1;
                     }
                     let p = Paragraph::new(text)
                         .block(Block::default().borders(Borders::ALL).title("World"));
@@ -155,22 +149,32 @@ fn setup_game<const X: usize, const Y: usize>(app: &mut App) -> Result<(), Box<d
                 Menu::Inventory => rect.render_widget(render_inventory(), chunks[1]),
                 Menu::Settings => {},
             }
+
+            let tabs = Tabs::new(menu)
+            .select(usize::from(&active_menu_item))
+            .block(Block::default().title("Menu").borders(Borders::ALL))
+            .style(Style::default().fg(tui::style::Color::White))
+            .highlight_style(Style::default().fg(tui::style::Color::Yellow))
+            .divider(Span::raw("|"));
+
+            rect.render_widget(tabs, chunks[0]);
         })?;
 
         match rx.recv()? {
             Event::Input(input) => {
                 if let event::Event::Key(key) = input {
-                    let switch_menu = |a: &mut Menu| {
+                    let switch_menu = |menu: &mut Menu| {
                         match key.code {
-                            event::KeyCode::Char('w') => *a = Menu::World,
-                            event::KeyCode::Char('i') => *a = Menu::Inventory,
-                            event::KeyCode::Char('s') => *a = Menu::Settings,
+                            event::KeyCode::Char('w') | event::KeyCode::Char('W') => *menu = Menu::World { dialogue: None },
+                            event::KeyCode::Char('i') | event::KeyCode::Char('I') => *menu = Menu::Inventory,
+                            event::KeyCode::Char('s') | event::KeyCode::Char('S') => *menu = Menu::Settings,
                             _ => {},
                         }
                     };
                     match active_menu_item {
-                        Menu::World => {
+                        Menu::World { dialogue: ref mut dialogue_option } => {
                             let mut set_player_input_movement = |movement_input: MovementInput| {
+                                if dialogue_option.is_some() { return; }
                                 {
                                     let mut player_input = app.world.resource_mut::<PlayerInput>();
                                     (*player_input).input_movement = movement_input;
@@ -180,11 +184,37 @@ fn setup_game<const X: usize, const Y: usize>(app: &mut App) -> Result<(), Box<d
                                 (*player_input).input_movement = MovementInput::Idle;
                             };
                             match key.code {
-                                event::KeyCode::Up => set_player_input_movement(MovementInput::North),
+                                event::KeyCode::Up => {
+                                    if let Some(dialogue) = dialogue_option {
+                                        if dialogue.active != 0 {
+                                            dialogue.active -= 1;
+                                        }
+                                    } else {
+                                        set_player_input_movement(MovementInput::North);
+                                    }
+                                },
                                 event::KeyCode::Right => set_player_input_movement(MovementInput::East),
-                                event::KeyCode::Down => set_player_input_movement(MovementInput::South),
+                                event::KeyCode::Down => {
+                                    if let Some(dialogue) = dialogue_option {
+                                        if dialogue.active != dialogue.options.len() {
+                                            dialogue.active += 1;
+                                        }
+                                    } else {
+                                        set_player_input_movement(MovementInput::South);
+                                    }
+                                },
                                 event::KeyCode::Left => set_player_input_movement(MovementInput::West),
-                                _ => switch_menu(&mut active_menu_item),
+                                event::KeyCode::Enter => {
+                                    if let Some(dialogue) = dialogue_option {
+                                        let option = &dialogue.options[dialogue.active].0;
+                                        println!("{:?}", option);
+                                    }
+                                },
+                                _ => {
+                                    if dialogue_option.is_none() {
+                                        switch_menu(&mut active_menu_item);
+                                    }
+                                },
                             }
                         },
                         Menu::Inventory => {
