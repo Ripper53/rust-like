@@ -14,7 +14,7 @@ impl Dialogue {
         self.in_conversation = true;
     }
     pub fn increment(&mut self) {
-        if self.active != self.options.len() {
+        if self.active != self.options.len() - 1 {
             self.active += 1;
         }
     }
@@ -25,10 +25,25 @@ impl Dialogue {
     }
     pub fn select(&mut self) {
         self.in_conversation = false;
-        let option = &self.options[self.active].1;
+        let option = self.options[self.active].1.clone();
+        option.execute(self);
     }
 }
 
+#[derive(Clone)]
 pub enum DialogueOption {
-    None,
+    /// Discontinue dialogue.
+    Leave,
+    /// Get more info, continue dialogue.
+    Info(String, Vec<(String, DialogueOption)>),
+}
+impl DialogueOption {
+    fn execute(&self, dialogue: &mut Dialogue) {
+        match self {
+            DialogueOption::Leave => {},
+            DialogueOption::Info(info, options) => {
+                dialogue.activate(info.to_owned(), options.to_owned());
+            },
+        }
+    }
 }

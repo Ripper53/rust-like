@@ -1,17 +1,17 @@
 use std::{time::{Duration, Instant}, thread, sync::mpsc::Receiver};
 
-use bevy::prelude::App;
-use common::{physics::*, character::{PlayerInput, MovementInput}, dialogue::Dialogue};
+use bevy::prelude::{App, State};
+use common::{physics::*, character::{PlayerInput, MovementInput}, dialogue::Dialogue, inventory::Inventory};
 use crossterm::{
     terminal::{enable_raw_mode, disable_raw_mode}, event, execute,
 };
 use tui::{
     Terminal,
     backend::CrosstermBackend,
-    layout::{Layout, Constraint, Rect},
-    widgets::{Paragraph, Block, Borders, Tabs},
+    layout::{Layout, Constraint},
+    widgets::{Paragraph, Block, Borders, Tabs, List, ListItem},
     style::{Style, Modifier},
-    text::{Spans, Span}
+    text::{Spans, Span, Text}
 };
 
 enum Event<I> {
@@ -62,10 +62,6 @@ impl From<&Menu> for usize {
         }
     }
 }
-
-fn render_home<'a>() -> Block<'a> { Block::default() }
-
-fn render_inventory<'a>() -> Block<'a> { Block::default() }
 
 pub fn runner<const X: usize, const Y: usize>(mut app: App) {
     setup_game::<X, Y>(&mut app).expect("setup_game");
@@ -143,8 +139,19 @@ fn setup_game<const X: usize, const Y: usize>(app: &mut App) -> Result<(), Box<d
 
                     rect.render_widget(p, main_layout[1]);
                 },
-                Menu::Inventory => rect.render_widget(render_inventory(), main_layout[1]),
-                Menu::Settings => {},
+                Menu::Inventory => {
+                    let player_inventory = app.world.resource::<Inventory>();
+                    let mut items = Vec::<ListItem>::with_capacity(player_inventory.items.len());
+                    for item in &player_inventory.items {
+                        items.push(ListItem::new(Text::raw(item.get_name())));
+                    }
+                    let p = List::new(vec![]);
+                },
+                Menu::Settings => {
+                    let p = Paragraph::new("<ESC> to quit")
+                        .block(Block::default().borders(Borders::ALL).title("Settings"));
+                    rect.render_widget(p, main_layout[1])
+                },
             }
 
             // Tabs

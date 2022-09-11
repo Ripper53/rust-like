@@ -21,19 +21,17 @@ pub struct Pathfinder {
 }
 impl Pathfinder {
     fn execute<const X: usize, const Y: usize>(&mut self, map: &Map<X, Y>, movement_input: &mut MovementInput, position: &mut Position) {
-        // Check if new path needs to be calculated
-        //if self.current_goal != self.last_goal {
-            self.path_index = 1;
-            self.last_goal = self.current_goal;
-            if let Some((path, _)) = astar(
-                position,
-                |p| p.successors(map),
-                |p| p.distance(&self.current_goal),
-                |p| *p == self.current_goal,
-            ) {
-                self.last_path = path;
-            }
-        //}
+        // Calculate path.
+        self.path_index = 1;
+        self.last_goal = self.current_goal;
+        if let Some((path, _)) = astar(
+            position,
+            |p| p.successors(map),
+            |p| p.distance(&self.current_goal),
+            |p| *p == self.current_goal,
+        ) {
+            self.last_path = path;
+        }
 
         *movement_input = if let Some(target) = self.last_path.get(self.path_index) {
             self.path_index += 1;

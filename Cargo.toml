@@ -12,3 +12,4 @@ client = { path = "./client" }
 
 rand = "^0.8.5"
 bevy = "^0.8.0"
+iyes_loopless = "^0.7.1"

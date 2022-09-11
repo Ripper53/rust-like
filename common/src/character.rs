@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::{physics::*, dialogue::{Dialogue, DialogueOption}};
+use crate::{physics::*, dialogue::{Dialogue, DialogueOption}, inventory::Inventory};
 
 #[derive(Component)]
 pub struct PlayerTag;
@@ -48,11 +48,6 @@ pub struct CharacterBundle {
     pub data: CharacterData,
 }
 
-#[derive(Debug)]
-pub struct Inventory {
-
-}
-
 #[derive(Component, Debug)]
 pub enum CharacterData {
     Player {
@@ -88,7 +83,7 @@ impl Interact {
     fn interact(&mut self, dialogue: &mut Dialogue, character_data: &CharacterData) {
         match self {
             Interact::Player => {
-                dialogue.activate("Bruh".to_string(), vec![("Option 1".to_string(), DialogueOption::None)]);
+                dialogue.activate("Bruh".to_string(), vec![("Option 1".to_string(), DialogueOption::Leave)]);
             },
             Interact::Lawyer => {},
         }
@@ -179,7 +174,7 @@ pub fn npc_movement_update<const X: usize, const Y: usize>(
         move_update(&mut map, entity, input, &mut position, sprite, &mut dialogue, &mut interact, &interact_query);
     }
 }
-pub fn player_update(player_input: Res<PlayerInput>, mut query: Query<(&mut MovementInput, With<PlayerTag>)>) {
+pub fn player_movement_input_update(player_input: Res<PlayerInput>, mut query: Query<(&mut MovementInput, With<PlayerTag>)>) {
     for (mut movement_input, _) in query.iter_mut() {
         *movement_input = player_input.input_movement;
     }
