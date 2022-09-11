@@ -33,7 +33,7 @@ pub fn legal<const X: usize, const Y: usize>(map: &mut Map<X, Y>) {
     map.create_room(
         Position::new(0, 0),
         Position::new(20, 10),
-        |tile| *tile = Tile::Ground { sprite: None, zone: Zone::Lawyer }
+        |tile| *tile = Tile::Ground { occupier: None, zone: Zone::Lawyer }
     );
     *map.get_mut(19, 7).unwrap() = Tile::default_ground();
 }

@@ -3,12 +3,12 @@ use std::{time::{Duration, Instant}, thread, sync::mpsc::Receiver};
 use bevy::prelude::App;
 use common::{physics::*, character::{PlayerInput, MovementInput}, dialogue::Dialogue};
 use crossterm::{
-    terminal::{enable_raw_mode, disable_raw_mode}, event,
+    terminal::{enable_raw_mode, disable_raw_mode}, event, execute,
 };
 use tui::{
     Terminal,
     backend::CrosstermBackend,
-    layout::{Layout, Constraint},
+    layout::{Layout, Constraint, Rect},
     widgets::{Paragraph, Block, Borders, Tabs},
     style::{Style, Modifier},
     text::{Spans, Span}
@@ -49,9 +49,7 @@ fn setup_terminal() -> Result<Receiver<Event<event::Event>>, Box<dyn std::error:
 }
 
 enum Menu {
-    World {
-        dialogue: Option<Dialogue>,
-    },
+    World,
     Inventory,
     Settings,
 }
@@ -75,31 +73,79 @@ pub fn runner<const X: usize, const Y: usize>(mut app: App) {
 fn setup_game<const X: usize, const Y: usize>(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     // Input
     let rx = setup_terminal()?;
-    let stdout = std::io::stdout();
-    let backend = CrosstermBackend::new(stdout);
+    execute!(std::io::stdout(), crossterm::terminal::EnterAlternateScreen).ok();
+    let backend = CrosstermBackend::new(std::io::stdout());
+    
     let mut terminal = Terminal::new(backend)?;
     terminal.clear()?;
 
     let menu_titles = vec!["World", "Inventory", "Settings"];
-    let mut active_menu_item = Menu::World { dialogue: None };
+    let mut active_menu_item = Menu::World;
 
     // Render
     loop {
         terminal.draw(|rect| {
             // Layout
-            let size = rect.size();
-            let chunks = Layout::default()
+            let dialogue = app.world.resource::<Dialogue>();
+            let top_layout = Layout::default()
+                .direction(tui::layout::Direction::Horizontal)
+                .margin(2)
+                .constraints([
+                    Constraint::Min(6),
+                    Constraint::Length(if dialogue.in_conversation { 30 } else { 0 }),
+                ])
+                .split(rect.size());
+            let main_layout = Layout::default()
                 .direction(tui::layout::Direction::Vertical)
                 .margin(2)
-                .constraints(
-                    [
-                        Constraint::Length(3),
-                        Constraint::Min(2),
-                        Constraint::Length(3),
-                    ]
-                    .as_ref(),
-                )
-                .split(size);
+                .constraints([
+                    Constraint::Length(3),
+                    Constraint::Min(2),
+                    Constraint::Length(3),
+                ])
+                .split(top_layout[0]);
+
+            // Main View
+            match &active_menu_item {
+                Menu::World => {
+                    let dialogue = app.world.resource::<Dialogue>();
+                    if dialogue.in_conversation {
+                        let dialogue_layout = Layout::default()
+                            .direction(tui::layout::Direction::Horizontal)
+                            .constraints([Constraint::Min(30)])
+                            .split(top_layout[1]);
+                        let p = Paragraph::new(dialogue.text.to_string())
+                            .block(Block::default().borders(Borders::ALL).title("Dialogue"));
+                        rect.render_widget(p, dialogue_layout[0]);
+                    }
+                    let map = app.world.resource::<Map<X, Y>>();
+                    let mut text = String::with_capacity((X * Y) + Y);
+                    for y in 0..Y {
+                        for x in 0..X {
+                            if let Some(tile) = map.get(x, Y - 1 - y) {
+                                let character = match tile {
+                                    Tile::Ground { occupier: occupier_option, .. } => {
+                                        if let Some(occupier) = occupier_option {
+                                            occupier.sprite.character
+                                        } else {
+                                            '%'
+                                        }
+                                    },
+                                    Tile::Wall => '#',
+                                };
+                                text.push(character);
+                            }
+                        }
+                        text.push('\n');
+                    }
+                    let p = Paragraph::new(text)
+                        .block(Block::default().borders(Borders::ALL).title("World"));
+
+                    rect.render_widget(p, main_layout[1]);
+                },
+                Menu::Inventory => rect.render_widget(render_inventory(), main_layout[1]),
+                Menu::Settings => {},
+            }
 
             // Tabs
             let menu = menu_titles
@@ -117,47 +163,14 @@ fn setup_game<const X: usize, const Y: usize>(app: &mut App) -> Result<(), Box<d
                     ])
                 })
                 .collect();
-
-            // Main View
-            match active_menu_item {
-                Menu::World { .. } => {
-                    let map = app.world.resource::<Map<X, Y>>();
-                    let mut text = String::with_capacity((X * Y) + Y);
-                    for y in 0..Y {
-                        for x in 0..X {
-                            if let Some(tile) = map.get(x, Y - 1 - y) {
-                                let character = match tile {
-                                    Tile::Ground { sprite: sprite_option, .. } => {
-                                        if let Some(sprite) = sprite_option {
-                                            sprite.character
-                                        } else {
-                                            '%'
-                                        }
-                                    },
-                                    Tile::Wall => '#',
-                                };
-                                text.push(character);
-                            }
-                        }
-                        text.push('\n');
-                    }
-                    let p = Paragraph::new(text)
-                        .block(Block::default().borders(Borders::ALL).title("World"));
-
-                    rect.render_widget(p, chunks[1]);
-                },
-                Menu::Inventory => rect.render_widget(render_inventory(), chunks[1]),
-                Menu::Settings => {},
-            }
-
             let tabs = Tabs::new(menu)
-            .select(usize::from(&active_menu_item))
-            .block(Block::default().title("Menu").borders(Borders::ALL))
-            .style(Style::default().fg(tui::style::Color::White))
-            .highlight_style(Style::default().fg(tui::style::Color::Yellow))
-            .divider(Span::raw("|"));
+                .select(usize::from(&active_menu_item))
+                .block(Block::default().title("Menu").borders(Borders::ALL))
+                .style(Style::default().fg(tui::style::Color::White))
+                .highlight_style(Style::default().fg(tui::style::Color::Yellow))
+                .divider(Span::raw("|"));
 
-            rect.render_widget(tabs, chunks[0]);
+            rect.render_widget(tabs, main_layout[0]);
         })?;
 
         match rx.recv()? {
@@ -165,16 +178,17 @@ fn setup_game<const X: usize, const Y: usize>(app: &mut App) -> Result<(), Box<d
                 if let event::Event::Key(key) = input {
                     let switch_menu = |menu: &mut Menu| {
                         match key.code {
-                            event::KeyCode::Char('w') | event::KeyCode::Char('W') => *menu = Menu::World { dialogue: None },
+                            event::KeyCode::Char('w') | event::KeyCode::Char('W') => *menu = Menu::World,
                             event::KeyCode::Char('i') | event::KeyCode::Char('I') => *menu = Menu::Inventory,
                             event::KeyCode::Char('s') | event::KeyCode::Char('S') => *menu = Menu::Settings,
                             _ => {},
                         }
                     };
                     match active_menu_item {
-                        Menu::World { dialogue: ref mut dialogue_option } => {
-                            let mut set_player_input_movement = |movement_input: MovementInput| {
-                                if dialogue_option.is_some() { return; }
+                        Menu::World => {
+                            let set_player_input_movement = |app: &mut App, movement_input: MovementInput| {
+                                let dialogue = app.world.resource::<Dialogue>();
+                                if dialogue.in_conversation { return; }
                                 {
                                     let mut player_input = app.world.resource_mut::<PlayerInput>();
                                     (*player_input).input_movement = movement_input;
@@ -185,33 +199,31 @@ fn setup_game<const X: usize, const Y: usize>(app: &mut App) -> Result<(), Box<d
                             };
                             match key.code {
                                 event::KeyCode::Up => {
-                                    if let Some(dialogue) = dialogue_option {
-                                        if dialogue.active != 0 {
-                                            dialogue.active -= 1;
-                                        }
+                                    let mut dialogue = app.world.resource_mut::<Dialogue>();
+                                    if dialogue.in_conversation {
+                                        dialogue.decrement();
                                     } else {
-                                        set_player_input_movement(MovementInput::North);
+                                        set_player_input_movement(app, MovementInput::North);
                                     }
                                 },
-                                event::KeyCode::Right => set_player_input_movement(MovementInput::East),
+                                event::KeyCode::Right => set_player_input_movement(app, MovementInput::East),
                                 event::KeyCode::Down => {
-                                    if let Some(dialogue) = dialogue_option {
-                                        if dialogue.active != dialogue.options.len() {
-                                            dialogue.active += 1;
-                                        }
-                                    } else {
-                                        set_player_input_movement(MovementInput::South);
+                                    let mut dialogue = app.world.resource_mut::<Dialogue>();
+                                    if dialogue.in_conversation {
+                                        dialogue.increment();
                                     }
+                                    set_player_input_movement(app, MovementInput::South);
                                 },
-                                event::KeyCode::Left => set_player_input_movement(MovementInput::West),
+                                event::KeyCode::Left => set_player_input_movement(app, MovementInput::West),
                                 event::KeyCode::Enter => {
-                                    if let Some(dialogue) = dialogue_option {
-                                        let option = &dialogue.options[dialogue.active].0;
-                                        println!("{:?}", option);
+                                    let mut dialogue = app.world.resource_mut::<Dialogue>();
+                                    if dialogue.in_conversation {
+                                        dialogue.select();
                                     }
                                 },
                                 _ => {
-                                    if dialogue_option.is_none() {
+                                    let dialogue = app.world.resource::<Dialogue>();
+                                    if !dialogue.in_conversation {
                                         switch_menu(&mut active_menu_item);
                                     }
                                 },
@@ -226,8 +238,9 @@ fn setup_game<const X: usize, const Y: usize>(app: &mut App) -> Result<(), Box<d
                             match key.code {
                                 event::KeyCode::Esc => {
                                     // Quit Game
-                                    disable_raw_mode()?;
-                                    terminal.show_cursor()?;
+                                    //disable_raw_mode()?;
+                                    //terminal.show_cursor()?;
+                                    execute!(std::io::stdout(), crossterm::terminal::LeaveAlternateScreen).ok();
                                     break;
                                 },
                                 _ => switch_menu(&mut active_menu_item),
