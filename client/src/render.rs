@@ -1,15 +1,15 @@
 use std::{time::{Duration, Instant}, thread, sync::mpsc::Receiver};
 
-use bevy::prelude::{App, State, ResMut, Query, With, CoreStage};
-use common::{physics::*, character::{PlayerInput, MovementInput, PlayerTag}, dialogue::Dialogue, inventory::Inventory};
+use bevy::prelude::{App, ResMut, Query, With, CoreStage};
+use common::{physics::*, character::{PlayerInput, MovementInput, PlayerTag}, dialogue::Dialogue, inventory::{Inventory, Item}};
 use crossterm::{
-    terminal::{enable_raw_mode, disable_raw_mode}, event, execute,
+    terminal::enable_raw_mode, event, execute,
 };
 use tui::{
     Terminal,
     backend::CrosstermBackend,
     layout::{Layout, Constraint},
-    widgets::{Paragraph, Block, Borders, Tabs, List, ListItem},
+    widgets::{Paragraph, Block, Borders, Tabs, List, ListItem, ListState},
     style::{Style, Modifier},
     text::{Spans, Span, Text}
 };
@@ -68,6 +68,7 @@ impl From<&Menu> for usize {
 #[derive(Default)]
 pub struct CameraData {
     position: Position,
+    selection: ListState,
 }
 fn update_camera_system(mut camera: ResMut<CameraData>, query: Query<&Position, With<PlayerTag>>) {
     for position in query.iter() {
@@ -142,9 +143,11 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                     for item in &player_inventory.items {
                         items.push(ListItem::new(Text::raw(item.get_name())));
                     }
-                    let p = List::new(vec![]);
-
-                    rect.render_widget(p, main_layout[1]);
+                    let item_list = List::new(items)
+                        .block(Block::default().borders(Borders::ALL).title("Inventory"))
+                        .highlight_symbol(">");
+                    let mut camera_data = app.world.resource_mut::<CameraData>();
+                    rect.render_stateful_widget(item_list, main_layout[1], &mut camera_data.selection);
                 },
                 Menu::Settings => {
                     let p = Paragraph::new("<ESC> to quit")
@@ -237,6 +240,28 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                         },
                         Menu::Inventory => {
                             match key.code {
+                                event::KeyCode::Up => {
+                                    let mut camera_data = app.world.resource_mut::<CameraData>();
+                                    if let Some(current_value) = camera_data.selection.selected() {
+                                        if current_value != 0 {
+                                            camera_data.selection.select(Some(current_value - 1));
+                                        }
+                                    } else {
+                                        camera_data.selection.select(Some(0));
+                                    }
+                                },
+                                event::KeyCode::Down => {
+                                    let item_count = app.world.resource::<Inventory>().items.len();
+                                    let mut camera_data = app.world.resource_mut::<CameraData>();
+                                    if let Some(current_value) = camera_data.selection.selected() {
+                                        let new_value = current_value + 1;
+                                        if new_value < item_count {
+                                            camera_data.selection.select(Some(new_value));
+                                        }
+                                    } else {
+                                        camera_data.selection.select(Some(0));
+                                    }
+                                },
                                 _ => switch_menu(&mut active_menu_item),
                             }
                         },

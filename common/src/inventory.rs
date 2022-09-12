@@ -1,11 +1,11 @@
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Item {
-
+    Food,
 }
 impl Item {
     pub fn get_name(&self) -> &'static str {
         match self {
-            _ => "Bruh",
+            Self::Food => "Food",
         }
     }
 }

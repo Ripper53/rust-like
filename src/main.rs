@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use client::render::*;
-use common::{physics::*, character::*, map_brain::Behavior, dialogue::Dialogue, inventory::Inventory};
+use common::{physics::*, character::*, map_brain::Behavior, dialogue::Dialogue, inventory::{Inventory, Item}};
 use iyes_loopless::{condition::IntoConditionalExclusiveSystem};
 
 fn setup(mut commands: Commands, mut map: ResMut<Map>) {
@@ -55,7 +55,7 @@ fn main() {
         .set_runner(runner)
         .init_resource::<PlayerInput>()
         .insert_resource(Dialogue::default())
-        .insert_resource(Inventory::default())
+        .insert_resource(Inventory { items: vec![Item::Food; 4] })
         .init_resource::<Map>()
         .add_startup_system(setup)
 
