@@ -75,6 +75,12 @@ impl Map {
             values[x + (X * (Y - 1))] = Tile::Wall;
         }
     }
+    pub fn get_size_x(&self) -> usize {
+        self.size_x
+    }
+    pub fn get_size_y(&self) -> usize {
+        self.size_y
+    }
     pub fn spawn_character(
         &mut self,
         commands: &mut Commands,

@@ -3,9 +3,6 @@ use client::render::*;
 use common::{physics::*, character::*, map_brain::Behavior, dialogue::Dialogue, inventory::Inventory};
 use iyes_loopless::{condition::IntoConditionalExclusiveSystem};
 
-const X: usize = 60;
-const Y: usize = 30;
-
 fn setup(mut commands: Commands, mut map: ResMut<Map>) {
     map.spawn_character(
         &mut commands,
@@ -55,7 +52,7 @@ fn main() {
     const NPC_MOVEMENT_UPDATE: &str = "npc_movement_update";
 
     App::new()
-        .set_runner(runner::<X, Y>)
+        .set_runner(runner)
         .init_resource::<PlayerInput>()
         .insert_resource(Dialogue::default())
         .insert_resource(Inventory::default())

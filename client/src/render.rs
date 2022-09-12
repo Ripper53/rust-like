@@ -1,7 +1,7 @@
 use std::{time::{Duration, Instant}, thread, sync::mpsc::Receiver};
 
-use bevy::prelude::{App, State};
-use common::{physics::*, character::{PlayerInput, MovementInput}, dialogue::Dialogue, inventory::Inventory};
+use bevy::prelude::{App, State, ResMut, Query, With, CoreStage};
+use common::{physics::*, character::{PlayerInput, MovementInput, PlayerTag}, dialogue::Dialogue, inventory::Inventory};
 use crossterm::{
     terminal::{enable_raw_mode, disable_raw_mode}, event, execute,
 };
@@ -13,6 +13,8 @@ use tui::{
     style::{Style, Modifier},
     text::{Spans, Span, Text}
 };
+
+use crate::canvas::MapCanvas;
 
 enum Event<I> {
     Input(I),
@@ -63,10 +65,25 @@ impl From<&Menu> for usize {
     }
 }
 
-pub fn runner<const X: usize, const Y: usize>(mut app: App) {
-    setup_game::<X, Y>(&mut app).expect("setup_game");
+#[derive(Default)]
+pub struct CameraData {
+    position: Position,
 }
-fn setup_game<const X: usize, const Y: usize>(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
+fn update_camera_system(mut camera: ResMut<CameraData>, query: Query<&Position, With<PlayerTag>>) {
+    for position in query.iter() {
+        camera.position = position.clone();
+    }
+}
+
+pub fn runner(mut app: App) {
+    setup_game(&mut app).expect("setup_game");
+}
+fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
+    app
+        .insert_resource(CameraData::default())
+        .add_startup_system(update_camera_system)
+        .add_system_to_stage(CoreStage::PostUpdate, update_camera_system);
+
     // Input
     let rx = setup_terminal()?;
     execute!(std::io::stdout(), crossterm::terminal::EnterAlternateScreen).ok();
@@ -115,29 +132,9 @@ fn setup_game<const X: usize, const Y: usize>(app: &mut App) -> Result<(), Box<d
                         rect.render_widget(p, dialogue_layout[0]);
                     }
                     let map = app.world.resource::<Map>();
-                    let mut text = String::with_capacity((X * Y) + Y);
-                    for y in 0..Y {
-                        for x in 0..X {
-                            if let Some(tile) = map.get(x, Y - 1 - y) {
-                                let character = match tile {
-                                    Tile::Ground { occupier: occupier_option, .. } => {
-                                        if let Some(occupier) = occupier_option {
-                                            occupier.sprite.character
-                                        } else {
-                                            '%'
-                                        }
-                                    },
-                                    Tile::Wall => '#',
-                                };
-                                text.push(character);
-                            }
-                        }
-                        text.push('\n');
-                    }
-                    let p = Paragraph::new(text)
-                        .block(Block::default().borders(Borders::ALL).title("World"));
-
-                    rect.render_widget(p, main_layout[1]);
+                    let camera = app.world.resource::<CameraData>();
+                    let canvas = MapCanvas { map, center_position: camera.position };
+                    rect.render_widget(canvas, main_layout[1]);
                 },
                 Menu::Inventory => {
                     let player_inventory = app.world.resource::<Inventory>();

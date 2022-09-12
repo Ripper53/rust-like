@@ -30,11 +30,21 @@ impl Map {
 }
 
 pub fn town(map: &mut Map) {
-    map.initialize::<60, 30>();
-    map.create_room(
-        Position::new(0, 0),
-        Position::new(20, 10),
-        |tile| *tile = Tile::Ground { occupier: None, zone: Zone::Road }
-    );
-    *map.get_mut(19, 7).unwrap() = Tile::default_ground();
+    map.initialize::<220, 60>();
+
+    fn home(map: &mut Map, bottom_left: Position, top_right: Position) {
+        map.create_room(
+            bottom_left,
+            top_right,
+            |tile| *tile = Tile::Ground { occupier: None, zone: Zone::Road }
+        );
+    }
+
+    home(map, Position::new(0, 0), Position::new(20, 10));
+    if let Some(tile) = map.get_mut(19, 7) {
+        *tile = Tile::default_ground()
+    }
+
+    home(map, Position::new(29, 49), Position::new(29 + 10, 49 + 10));
+    home(map, Position::new(29, 29), Position::new(29 + 10, 29 + 10));
 }
