@@ -6,7 +6,7 @@ use iyes_loopless::{condition::IntoConditionalExclusiveSystem};
 const X: usize = 60;
 const Y: usize = 30;
 
-fn setup<const X: usize, const Y: usize>(mut commands: Commands, mut map: ResMut<Map<X, Y>>) {
+fn setup(mut commands: Commands, mut map: ResMut<Map>) {
     map.spawn_character(
         &mut commands,
         common::character::Sprite::new('@'),
@@ -22,13 +22,25 @@ fn setup<const X: usize, const Y: usize>(mut commands: Commands, mut map: ResMut
         common::character::Sprite::new('L'),
         Position::new(2, 1),
         Velocity::new(0, 0),
-        CharacterData::Lawyer,
+        CharacterData::Lerain,
+        |mut entity_commands| {
+            entity_commands.insert(common::map_brain::Brain::new(vec![
+                Behavior::default_slow_movement(),
+            ]));
+        },
+    );
+    /*map.spawn_character(
+        &mut commands,
+        common::character::Sprite::new('L'),
+        Position::new(2, 1),
+        Velocity::new(0, 0),
+        CharacterData::Lerain,
         |mut entity_commands| {
             entity_commands.insert(common::map_brain::Brain::new(vec![
                 Behavior::default_lawyer(),
             ]));
         },
-    );
+    );*/
 }
 
 fn in_conversation_condition(dialogue: Res<Dialogue>) -> bool {
@@ -47,8 +59,8 @@ fn main() {
         .init_resource::<PlayerInput>()
         .insert_resource(Dialogue::default())
         .insert_resource(Inventory::default())
-        .init_resource::<Map<X, Y>>()
-        .add_startup_system(setup::<X, Y>)
+        .init_resource::<Map>()
+        .add_startup_system(setup)
 
         .add_system(
             player_movement_input_update
@@ -56,25 +68,25 @@ fn main() {
                 .label(PLAYER_INPUT_LABEL)
         )
         .add_system(
-            player_movement_update::<X, Y>
+            player_movement_update
                 .run_if_not(in_conversation_condition)
                 .label(PLAYER_MOVEMENT_LABEL)
                 .after(PLAYER_INPUT_LABEL)
         )
         .add_system(
-            common::map_brain::brain_update::<X, Y>
+            common::map_brain::brain_update
                 .run_if_not(in_conversation_condition)
                 .label(BRAIN_UPDATE_LABEL)
                 .after(PLAYER_MOVEMENT_LABEL)
         )
         .add_system(
-            npc_movement_update::<X, Y>
+            npc_movement_update
                 .run_if_not(in_conversation_condition)
                 .label(NPC_MOVEMENT_UPDATE)
                 .after(BRAIN_UPDATE_LABEL)
         )
         .add_system(
-            physics_update::<X, Y>
+            physics_update
                 .run_if_not(in_conversation_condition)
                 .after(NPC_MOVEMENT_UPDATE)
         )

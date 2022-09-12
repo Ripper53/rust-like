@@ -114,7 +114,7 @@ fn setup_game<const X: usize, const Y: usize>(app: &mut App) -> Result<(), Box<d
                             .block(Block::default().borders(Borders::ALL).title("Dialogue"));
                         rect.render_widget(p, dialogue_layout[0]);
                     }
-                    let map = app.world.resource::<Map<X, Y>>();
+                    let map = app.world.resource::<Map>();
                     let mut text = String::with_capacity((X * Y) + Y);
                     for y in 0..Y {
                         for x in 0..X {
@@ -146,6 +146,8 @@ fn setup_game<const X: usize, const Y: usize>(app: &mut App) -> Result<(), Box<d
                         items.push(ListItem::new(Text::raw(item.get_name())));
                     }
                     let p = List::new(vec![]);
+
+                    rect.render_widget(p, main_layout[1]);
                 },
                 Menu::Settings => {
                     let p = Paragraph::new("<ESC> to quit")

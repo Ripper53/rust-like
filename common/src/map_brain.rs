@@ -20,10 +20,8 @@ pub struct Pathfinder {
     path_index: usize,
 }
 impl Pathfinder {
-    fn execute<const X: usize, const Y: usize>(&mut self, map: &Map<X, Y>, movement_input: &mut MovementInput, position: &mut Position) {
+    fn execute(&mut self, map: &Map, movement_input: &mut MovementInput, position: &mut Position) {
         // Calculate path.
-        self.path_index = 1;
-        self.last_goal = self.current_goal;
         if let Some((path, _)) = astar(
             position,
             |p| p.successors(map),
@@ -31,6 +29,8 @@ impl Pathfinder {
             |p| *p == self.current_goal,
         ) {
             self.last_path = path;
+            self.path_index = 1;
+            self.last_goal = self.current_goal;
         }
 
         *movement_input = if let Some(target) = self.last_path.get(self.path_index) {
@@ -57,21 +57,21 @@ impl Pathfinder {
 }
 
 pub enum Behavior {
-    Lawyer {
+    SlowMovement {
         pathfinder: Pathfinder,
         skip_turn: bool,
     },
 }
 impl Behavior {
-    pub fn default_lawyer() -> Self {
-        Behavior::Lawyer { pathfinder: Pathfinder::default(), skip_turn: false }
+    pub fn default_slow_movement() -> Self {
+        Behavior::SlowMovement { pathfinder: Pathfinder::default(), skip_turn: false }
     }
 }
 
 impl Behavior {
-    fn execute<const X: usize, const Y: usize>(&mut self, map: &Map<X, Y>, movement_input: &mut MovementInput, position: &mut Position, velocity: &mut Velocity) {
+    fn execute(&mut self, map: &Map, movement_input: &mut MovementInput, position: &mut Position, velocity: &mut Velocity) {
         match self {
-            Behavior::Lawyer { pathfinder, skip_turn } => {
+            Behavior::SlowMovement { pathfinder, skip_turn } => {
                 if *skip_turn {
                     *skip_turn = false;
                     *movement_input = MovementInput::Idle;
@@ -86,7 +86,7 @@ impl Behavior {
 }
 
 impl Position {
-    fn successors<const X: usize, const Y: usize>(&self, map: &Map<X, Y>) -> Vec<(Position, u32)> {
+    fn successors(&self, map: &Map) -> Vec<(Position, u32)> {
         let mut neighbors = Vec::<Position>::with_capacity(4);
         let mut add_to_neighbors = |position: Position| {
             if let Some(tile) = map.get(position.x as usize, position.y as usize) {
@@ -107,9 +107,9 @@ impl Position {
     }
 }
 
-pub fn brain_update<const X: usize, const Y: usize>(
+pub fn brain_update(
     mut query: Query<(&mut Brain, &mut MovementInput, &mut Position, &mut Velocity)>,
-    map: Res<Map<X, Y>>,
+    map: Res<Map>,
 ) {
     query.par_for_each_mut(32, |(mut brain, mut movement_input, mut position, mut velocity)| {
         for behavior in brain.behaviors.iter_mut() {

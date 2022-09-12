@@ -53,14 +53,18 @@ pub enum CharacterData {
     Player {
         inventory: Inventory,
     },
-    Lawyer,
+    Lerain,
+    Rumdare,
+    Werewolf,
 }
 impl From<&CharacterData> for Interact {
     fn from(value: &CharacterData) -> Self {
         // Get defaults
         match value {
             CharacterData::Player { .. } => Interact::Player,
-            CharacterData::Lawyer => Interact::Lawyer,
+            CharacterData::Lerain => Interact::Lerain,
+            CharacterData::Rumdare => Interact::Rumdare,
+            CharacterData::Werewolf => Interact::Werewolf,
         }
     }
 }
@@ -77,7 +81,9 @@ pub enum MovementInput {
 #[derive(Component)]
 pub enum Interact {
     Player,
-    Lawyer,
+    Lerain,
+    Rumdare,
+    Werewolf,
 }
 impl Interact {
     fn interact(&mut self, dialogue: &mut Dialogue, character_data: &CharacterData) {
@@ -85,14 +91,14 @@ impl Interact {
             Interact::Player => {
                 dialogue.activate("Bruh".to_string(), vec![("Option 1".to_string(), DialogueOption::Leave)]);
             },
-            Interact::Lawyer => {},
+            Interact::Lerain | Interact::Rumdare | Interact::Werewolf => {},
         }
     }
 }
 
 /// True if collided, otherwise set tile to occupied and return false.
-fn check_collision<const X: usize, const Y: usize>(
-    map: &mut Map<X, Y>,
+fn check_collision(
+    map: &mut Map,
     entity: Entity,
     current_position: &Position,
     new_position: &Position,
@@ -102,7 +108,7 @@ fn check_collision<const X: usize, const Y: usize>(
     interact_query: &Query<&CharacterData>,
 ) -> bool {
     let mut place_character_at_new_position = || {
-        if let Some(tile) = new_position.get_mut_from_map::<X, Y>(map) {
+        if let Some(tile) = new_position.get_mut_from_map(map) {
             if tile.is_occupied() {
                 if let Tile::Ground { occupier: occupier_option, .. } = tile {
                     if let Some(occupier) = occupier_option {
@@ -123,7 +129,7 @@ fn check_collision<const X: usize, const Y: usize>(
         false
     };
     if place_character_at_new_position() {
-        if let Some(Tile::Ground { occupier: ref mut old_value, .. }) = current_position.get_mut_from_map::<X, Y>(map) {
+        if let Some(Tile::Ground { occupier: ref mut old_value, .. }) = current_position.get_mut_from_map(map) {
             *old_value = None;
         }
         false
@@ -132,8 +138,8 @@ fn check_collision<const X: usize, const Y: usize>(
     }
 }
 
-fn move_update<const X: usize, const Y: usize>(
-    mut map: &mut Map<X, Y>,
+fn move_update(
+    mut map: &mut Map,
     entity: Entity,
     input: &MovementInput,
     position: &mut Position,
@@ -154,8 +160,8 @@ fn move_update<const X: usize, const Y: usize>(
         _ => {},
     }
 }
-pub fn player_movement_update<const X: usize, const Y: usize>(
-    mut map: ResMut<Map<X, Y>>,
+pub fn player_movement_update(
+    mut map: ResMut<Map>,
     mut dialogue: ResMut<Dialogue>,
     mut player_query: Query<(Entity, &MovementInput, &mut Position, Option<&Sprite>, &mut Interact), With<PlayerTag>>,
     interact_query: Query<&CharacterData>,
@@ -164,8 +170,8 @@ pub fn player_movement_update<const X: usize, const Y: usize>(
         move_update(&mut map, entity, input, &mut position, sprite, &mut dialogue, &mut interact, &interact_query);
     }
 }
-pub fn npc_movement_update<const X: usize, const Y: usize>(
-    mut map: ResMut<Map<X, Y>>,
+pub fn npc_movement_update(
+    mut map: ResMut<Map>,
     mut dialogue: ResMut<Dialogue>,
     mut npc_query: Query<(Entity, &MovementInput, &mut Position, Option<&Sprite>, &mut Interact), Without<PlayerTag>>,
     interact_query: Query<&CharacterData>,

@@ -1,6 +1,6 @@
 use crate::physics::{Map, Tile, Position, Zone};
 
-impl<const X: usize, const Y: usize> Map<X, Y> {
+impl Map {
     fn create_room(&mut self, bottom_left: Position, top_right: Position, place_tile: fn(&mut Tile)) {
         for y in bottom_left.y..top_right.y {
             for x in bottom_left.x..top_right.x {
@@ -29,11 +29,12 @@ impl<const X: usize, const Y: usize> Map<X, Y> {
     }
 }
 
-pub fn legal<const X: usize, const Y: usize>(map: &mut Map<X, Y>) {
+pub fn town(map: &mut Map) {
+    map.initialize::<60, 30>();
     map.create_room(
         Position::new(0, 0),
         Position::new(20, 10),
-        |tile| *tile = Tile::Ground { occupier: None, zone: Zone::Lawyer }
+        |tile| *tile = Tile::Ground { occupier: None, zone: Zone::Road }
     );
     *map.get_mut(19, 7).unwrap() = Tile::default_ground();
 }

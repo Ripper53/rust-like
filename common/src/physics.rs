@@ -1,12 +1,13 @@
 use std::hash::Hash;
 use bevy::{prelude::*, ecs::system::EntityCommands};
-use crate::{character::{CharacterBundle, Interact, CharacterData}, map_setup::legal};
+use crate::{character::{CharacterBundle, Interact, CharacterData}, map_setup::town};
 use rand::prelude::*;
 
 #[derive(Clone)]
 pub enum Zone {
-    None,
-    Lawyer,
+    Road,
+    Offroad,
+    KrillTheater,
 }
 /// Enum value true if space is occupied, otherwise false.
 #[derive(Clone)]
@@ -29,7 +30,7 @@ impl Occupier {
 }
 impl Tile {
     pub fn default_ground() -> Self {
-        Tile::Ground { occupier: None, zone: Zone::None }
+        Tile::Ground { occupier: None, zone: Zone::Road }
     }
     pub fn is_occupied(&self) -> bool {
         match self {
@@ -38,12 +39,28 @@ impl Tile {
         }
     }
 }
-pub struct Map<const X: usize, const Y: usize> {
+pub struct Map {
     values: Vec::<Tile>,
+    size_x: usize,
+    size_y: usize,
 }
-impl<const X: usize, const Y: usize> Map<X, Y> {
-    pub fn new() -> Map<X, Y> {
+impl Map {
+    pub fn new<const X: usize, const Y: usize>() -> Map {
         let mut values = Vec::<Tile>::with_capacity(X * Y);
+        Self::fill_values::<X, Y>(&mut values);
+        Map {
+            values,
+            size_x: X,
+            size_y: Y,
+        }
+    }
+    pub fn initialize<const X: usize, const Y: usize>(&mut self) {
+        self.values.clear();
+        Self::fill_values::<X, Y>(&mut self.values);
+        self.size_x = X;
+        self.size_y = Y;
+    }
+    fn fill_values<const X: usize, const Y: usize>(values: &mut Vec::<Tile>) {
         for _ in 0..X * Y {
             values.push(Tile::default_ground());
         }
@@ -56,10 +73,6 @@ impl<const X: usize, const Y: usize> Map<X, Y> {
         for x in 0..X {
             values[x] = Tile::Wall;
             values[x + (X * (Y - 1))] = Tile::Wall;
-        }
-
-        Map::<X, Y> {
-            values,
         }
     }
     pub fn spawn_character(
@@ -91,36 +104,36 @@ impl<const X: usize, const Y: usize> Map<X, Y> {
         }
     }
     pub fn get(&self, x: usize, y: usize) -> Option<&Tile> {
-        if x < X && y < Y {
-            self.values.get(x + (X * y))
+        if x < self.size_x && y < self.size_y {
+            self.values.get(x + (self.size_x * y))
         } else {
             None
         }
     }
     pub fn get_mut(&mut self, x: usize, y: usize) -> Option<&mut Tile> {
-        if x < X && y < Y {
-            self.values.get_mut(x + (X * y))
+        if x < self.size_x && y < self.size_y {
+            self.values.get_mut(x + (self.size_x * y))
         } else {
             None
         }
     }
 }
-impl<const X: usize, const Y: usize> FromWorld for Map<X, Y> {
+impl FromWorld for Map {
     fn from_world(_world: &mut World) -> Self {
-        let mut map = Map::<X, Y>::new();
-        legal(&mut map);
+        let mut map = Map::new::<60, 30>();
+        town(&mut map);
         map
     }
 }
 impl Position {
-    pub fn get_from_map<'a, const X: usize, const Y: usize>(&'a self, map: &'a Map<X, Y>) -> Option<&Tile> {
+    pub fn get_from_map<'a>(&'a self, map: &'a Map) -> Option<&Tile> {
         if self.x < 0 || self.y < 0 {
             None
         } else {
             map.get(self.x as usize, self.y as usize)
         }
     }
-    pub fn get_mut_from_map<'a, const X: usize, const Y: usize>(&'a self, map: &'a mut Map<X, Y>) -> Option<&mut Tile> {
+    pub fn get_mut_from_map<'a>(&'a self, map: &'a mut Map) -> Option<&mut Tile> {
         if self.x < 0 || self.y < 0 {
             None
         } else {
@@ -194,7 +207,7 @@ impl Velocity {
     }
 }
 
-pub fn physics_update<const X: usize, const Y: usize>(map: Res<Map<X, Y>>, mut query: Query<(&mut Position, &Velocity)>) {
+pub fn physics_update(map: Res<Map>, mut query: Query<(&mut Position, &Velocity)>) {
     query.par_for_each_mut(32, |(mut pos, vel)| {
         let clone_pos = pos.clone() + vel;
         if let Some(tile) = map.get(clone_pos.x as usize, clone_pos.y as usize) {
