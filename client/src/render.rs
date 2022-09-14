@@ -99,23 +99,23 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     // Render
     loop {
         terminal.draw(|rect| {
+            const MARGIN: u16 = 2;
             // Layout
             let dialogue = app.world.resource::<Dialogue>();
             let top_layout = Layout::default()
                 .direction(tui::layout::Direction::Horizontal)
-                .margin(2)
                 .constraints([
                     Constraint::Min(6),
-                    Constraint::Length(if dialogue.in_conversation { 30 } else { 0 }),
+                    Constraint::Min(6),
                 ])
                 .split(rect.size());
             let main_layout = Layout::default()
                 .direction(tui::layout::Direction::Vertical)
-                .margin(2)
+                .margin(MARGIN)
                 .constraints([
                     Constraint::Length(3),
-                    Constraint::Min(2),
-                    Constraint::Length(3),
+                    Constraint::Min(3),
+                    Constraint::Length(if dialogue.in_conversation { 6 } else { 0 }),
                 ])
                 .split(top_layout[0]);
 
@@ -124,13 +124,9 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                 Menu::World => {
                     let dialogue = app.world.resource::<Dialogue>();
                     if dialogue.in_conversation {
-                        let dialogue_layout = Layout::default()
-                            .direction(tui::layout::Direction::Horizontal)
-                            .constraints([Constraint::Min(30)])
-                            .split(top_layout[1]);
                         let p = Paragraph::new(dialogue.text.to_string())
                             .block(Block::default().borders(Borders::ALL).title("Dialogue"));
-                        rect.render_widget(p, dialogue_layout[0]);
+                        rect.render_widget(p, main_layout[2]);
                     }
                     let map = app.world.resource::<Map>();
                     let camera = app.world.resource::<CameraData>();
@@ -177,7 +173,7 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                 .block(Block::default().title("Menu").borders(Borders::ALL))
                 .style(Style::default().fg(tui::style::Color::White))
                 .highlight_style(Style::default().fg(tui::style::Color::Yellow))
-                .divider(Span::raw("|"));
+                .divider("|");
 
             rect.render_widget(tabs, main_layout[0]);
         })?;
@@ -230,12 +226,7 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                                         dialogue.select();
                                     }
                                 },
-                                _ => {
-                                    let dialogue = app.world.resource::<Dialogue>();
-                                    if !dialogue.in_conversation {
-                                        switch_menu(&mut active_menu_item);
-                                    }
-                                },
+                                _ => switch_menu(&mut active_menu_item),
                             }
                         },
                         Menu::Inventory => {

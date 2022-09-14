@@ -5,3 +5,4 @@ pub mod room;
 pub mod map_setup;
 pub mod dialogue;
 pub mod inventory;
+pub mod util;

@@ -1,6 +1,6 @@
 use std::hash::Hash;
 use bevy::{prelude::*, ecs::system::EntityCommands};
-use crate::{character::{CharacterBundle, Interact, CharacterData}, map_setup::town};
+use crate::{character::{CharacterBundle, Interact, CharacterType}, map_setup::town};
 use rand::prelude::*;
 
 #[derive(Clone)]
@@ -87,7 +87,7 @@ impl Map {
         sprite: crate::character::Sprite,
         position: Position,
         velocity: Velocity,
-        data: CharacterData,
+        data: CharacterType,
         spawned_callback: fn(EntityCommands),
     ) {
         if let Some(tile) = self.get_mut(position.x as usize, position.y as usize) {
@@ -154,7 +154,7 @@ pub struct Position {
     pub y: i32,
 }
 impl Position {
-    pub fn new(x: i32, y: i32) -> Position {
+    pub fn new(x: i32, y: i32) -> Self {
         Position { x, y }
     }
 }

@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use client::render::*;
-use common::{physics::*, character::*, map_brain::Behavior, dialogue::Dialogue, inventory::{Inventory, Item}};
-use iyes_loopless::{condition::IntoConditionalExclusiveSystem};
+use common::{physics::*, character::*, map_brain::{Behavior, BehaviorData}, dialogue::Dialogue, inventory::{Inventory, Item}, util::{spawn_lerain, spawn_werewolf}};
+use iyes_loopless::condition::IntoConditionalExclusiveSystem;
 
 fn setup(mut commands: Commands, mut map: ResMut<Map>) {
     map.spawn_character(
@@ -9,23 +9,13 @@ fn setup(mut commands: Commands, mut map: ResMut<Map>) {
         common::character::Sprite::new('@'),
         Position::new(1, 2),
         Velocity::new(0, 0),
-        CharacterData::Player { inventory: Inventory::default() },
+        CharacterType::Player,
         |mut entity_commands| {
             entity_commands.insert(PlayerTag);
         },
     );
-    map.spawn_character(
-        &mut commands,
-        common::character::Sprite::new('L'),
-        Position::new(2, 1),
-        Velocity::new(0, 0),
-        CharacterData::Lerain,
-        |mut entity_commands| {
-            entity_commands.insert(common::map_brain::Brain::new(vec![
-                Behavior::default_slow_movement(),
-            ]));
-        },
-    );
+    spawn_lerain(&mut commands, &mut map, Position::new(2, 1));
+    spawn_werewolf(&mut commands, &mut map, Position::new(2, 4));
     /*map.spawn_character(
         &mut commands,
         common::character::Sprite::new('L'),

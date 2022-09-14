@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use crate::{physics::*, dialogue::{Dialogue, DialogueOption}, inventory::Inventory};
+use crate::{physics::*, dialogue::{Dialogue, DialogueOption}};
 
 #[derive(Component)]
 pub struct PlayerTag;
@@ -45,26 +45,53 @@ pub struct CharacterBundle {
     pub position: Position,
     pub velocity: Velocity,
     pub interact: Interact,
-    pub data: CharacterData,
+    pub data: CharacterType,
 }
 
+#[derive(Debug, PartialEq)]
+pub struct CharacterResourceData {
+    health: u32,
+}
 #[derive(Component, Debug)]
-pub enum CharacterData {
-    Player {
-        inventory: Inventory,
-    },
+pub enum CharacterType {
+    Player,
     Lerain,
     Rumdare,
     Werewolf,
 }
-impl From<&CharacterData> for Interact {
-    fn from(value: &CharacterData) -> Self {
+impl PartialEq for CharacterType {
+    fn eq(&self, other: &Self) -> bool {
+        match self {
+            Self::Player => match other {
+                Self::Player => true,
+                _ => false,
+            },
+            Self::Lerain => match other {
+                Self::Lerain => true,
+                _ => false,
+            },
+            Self::Rumdare => match other {
+                Self::Rumdare => true,
+                _ => false,
+            },
+            Self::Werewolf => match other {
+                Self::Werewolf => true,
+                _ => false,
+            },
+        }
+    }
+    fn ne(&self, other: &Self) -> bool {
+        !self.eq(other)
+    }
+}
+impl From<&CharacterType> for Interact {
+    fn from(value: &CharacterType) -> Self {
         // Get defaults
         match value {
-            CharacterData::Player { .. } => Interact::Player,
-            CharacterData::Lerain => Interact::Lerain,
-            CharacterData::Rumdare => Interact::Rumdare,
-            CharacterData::Werewolf => Interact::Werewolf,
+            CharacterType::Player => Interact::Player,
+            CharacterType::Lerain => Interact::Lerain,
+            CharacterType::Rumdare => Interact::Rumdare,
+            CharacterType::Werewolf => Interact::Werewolf,
         }
     }
 }
@@ -86,7 +113,7 @@ pub enum Interact {
     Werewolf,
 }
 impl Interact {
-    fn interact(&mut self, dialogue: &mut Dialogue, character_data: &CharacterData) {
+    fn interact(&mut self, dialogue: &mut Dialogue, character_data: &CharacterType) {
         match self {
             Interact::Player => {
                 dialogue.activate("Bruh".to_string(), vec![("Option 1".to_string(), DialogueOption::Leave)]);
@@ -105,7 +132,7 @@ fn check_collision(
     sprite: Option<&Sprite>,
     dialogue: &mut Dialogue,
     interact: &mut Interact,
-    interact_query: &Query<&CharacterData>,
+    interact_query: &Query<&CharacterType>,
 ) -> bool {
     let mut place_character_at_new_position = || {
         if let Some(tile) = new_position.get_mut_from_map(map) {
@@ -146,7 +173,7 @@ fn move_update(
     sprite: Option<&Sprite>,
     dialogue: &mut Dialogue,
     interact: &mut Interact,
-    interact_query: &Query<&CharacterData>,
+    interact_query: &Query<&CharacterType>,
 ) {
     let mut move_position = |movement: Position| {
         if check_collision(&mut map, entity, &position, &(*position + movement), sprite, dialogue, interact, interact_query) { return; }
@@ -164,7 +191,7 @@ pub fn player_movement_update(
     mut map: ResMut<Map>,
     mut dialogue: ResMut<Dialogue>,
     mut player_query: Query<(Entity, &MovementInput, &mut Position, Option<&Sprite>, &mut Interact), With<PlayerTag>>,
-    interact_query: Query<&CharacterData>,
+    interact_query: Query<&CharacterType>,
 ) {
     for (entity, input, mut position, sprite, mut interact) in player_query.iter_mut() {
         move_update(&mut map, entity, input, &mut position, sprite, &mut dialogue, &mut interact, &interact_query);
@@ -174,7 +201,7 @@ pub fn npc_movement_update(
     mut map: ResMut<Map>,
     mut dialogue: ResMut<Dialogue>,
     mut npc_query: Query<(Entity, &MovementInput, &mut Position, Option<&Sprite>, &mut Interact), Without<PlayerTag>>,
-    interact_query: Query<&CharacterData>,
+    interact_query: Query<&CharacterType>,
 ) {
     for (entity, input, mut position, sprite, mut interact) in npc_query.iter_mut() {
         move_update(&mut map, entity, input, &mut position, sprite, &mut dialogue, &mut interact, &interact_query);

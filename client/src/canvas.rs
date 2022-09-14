@@ -17,7 +17,12 @@ impl<'a> Widget for MapCanvas<'a> {
                 diff - (screen_size / 2).min(diff)
             } else {
                 // Minus one to center camera.
-                (screen_size / 2) - 1
+                let value = screen_size / 2;
+                if value != 0 {
+                    value - 1
+                } else {
+                    value
+                }
             };
             let center = (clamp_to_bottom_of_center + halfway).min(map_size - screen_size + OFFSET);
             center
