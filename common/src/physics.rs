@@ -1,13 +1,30 @@
 use std::hash::Hash;
 use bevy::{prelude::*, ecs::system::EntityCommands};
 use crate::{character::{CharacterBundle, Interact, CharacterType}, map_setup::town};
-use rand::prelude::*;
 
 #[derive(Clone)]
 pub enum Zone {
     Road,
     Offroad,
-    KrillTheater,
+    Home,
+    KrillTheater { zone: KrillTheaterZone },
+}
+#[derive(Clone)]
+pub enum KrillTheaterZone {
+    Free,
+    LineUp
+}
+impl Tile {
+    pub fn krill_theater(&self) -> Option<&KrillTheaterZone> {
+        match self {
+            Tile::Ground { zone, .. } => if let Zone::KrillTheater { zone } = zone {
+                Some(zone)
+            } else {
+                None
+            },
+            _ => None,
+        }
+    }
 }
 /// Enum value true if space is occupied, otherwise false.
 #[derive(Clone)]

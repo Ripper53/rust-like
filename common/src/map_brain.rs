@@ -1,6 +1,7 @@
 use std::cmp::Ordering;
 
 use bevy::prelude::*;
+use rand::prelude::*;
 use crate::{physics::*, character::{MovementInput, CharacterType}};
 use pathfinding::prelude::astar;
 
@@ -91,11 +92,13 @@ impl Behavior {
 }
 
 impl Behavior {
-    fn get_pathfinder_target(search_query: &Query<(&CharacterType, &Position)>, character_data: &CharacterType, pathfinder: &mut Pathfinder, position: &Position) {
-        let mut get_target = |target_character_data: CharacterType| {
+    fn get_pathfinder_target(map: &Map, search_query: &Query<(&CharacterType, &Position)>, character_data: &CharacterType, pathfinder: &mut Pathfinder, position: &Position) {
+        let get_target = |pathfinder: &mut Pathfinder, target_character_data: CharacterType| {
+            let mut found_target = false;
             if let Some((_, target)) = search_query.iter().min_by(|(data_a, pos_a), (data_b, pos_b)| {
                 if **data_a == target_character_data {
                     if **data_b == target_character_data {
+                        found_target = true;
                         let diff_a = position.distance(pos_a);
                         let diff_b = position.distance(pos_b);
                         diff_a.cmp(&diff_b)
@@ -108,14 +111,73 @@ impl Behavior {
                     Ordering::Equal
                 }
             }) {
-                pathfinder.current_goal = *target;
+                if found_target {
+                    pathfinder.current_goal = *target;
+                    true
+                } else {
+                    pathfinder.current_goal = *position;
+                    false
+                }
+            } else {
+                false
             }
         };
+        let get_random_target = |pathfinder: &mut Pathfinder| {
+            let x = rand::thread_rng().gen_range(0..map.get_size_x() as i32);
+            let y = rand::thread_rng().gen_range(0..map.get_size_y() as i32);
+            pathfinder.current_goal = Position::new(x, y);
+        };
         match character_data {
-            CharacterType::Player { .. } => {},
-            CharacterType::Lerain => get_target(CharacterType::Werewolf),
-            CharacterType::Rumdare => get_target(CharacterType::Werewolf),
-            CharacterType::Werewolf => get_target(CharacterType::Player),
+            CharacterType::Player => {},
+            CharacterType::Lerain => {
+                if !get_target(pathfinder, CharacterType::Werewolf) && pathfinder.current_goal == *position {
+                    // If a target was not found, do idle behavior!
+                    if let Some(tile) = map.get(position.x as usize, position.y as usize) {
+                        if let Some(krill_theater) = tile.krill_theater() {
+                            match krill_theater {
+                                KrillTheaterZone::Free => {
+                                    get_random_target(pathfinder);
+                                },
+                                KrillTheaterZone::LineUp => {
+                                    let check = |position: &Position| {
+                                        if let Some(tile) = map.get(position.x as usize, position.y as usize) {
+                                            if !tile.is_occupied() {
+                                                if let Some(krill_theater) = tile.krill_theater() {
+                                                    if let KrillTheaterZone::LineUp = krill_theater {
+                                                        return true;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        false
+                                    };
+                                    let north = Position::new(position.x, position.y + 1);
+                                    let east = Position::new(position.x - 1, position.y);
+                                    let south = Position::new(position.x, position.y - 1);
+                                    let west = Position::new(position.x - 1, position.y);
+                                    if check(&north) {
+                                        if check(&east) {
+                                            pathfinder.current_goal = east;
+                                        } else if check(&west) {
+                                            pathfinder.current_goal = north;
+                                        }
+                                    } else if check(&east) {
+                                        if check(&south) {
+                                            pathfinder.current_goal = south;
+                                        }
+                                    } else if check(&south) {
+                                        if check(&west) {
+                                            pathfinder.current_goal = west;
+                                        }
+                                    }
+                                },
+                            }
+                        }
+                    }
+                }
+            },
+            CharacterType::Rumdare => { get_target(pathfinder, CharacterType::Werewolf); },
+            CharacterType::Werewolf => { get_target(pathfinder, CharacterType::Player); },
         }
     }
     fn execute(
@@ -130,7 +192,7 @@ impl Behavior {
     ) {
         match self {
             Behavior::SlowMovement { pathfinder, skip_turn } => {
-                Self::get_pathfinder_target(pathfinder_search_query, character_data, pathfinder, position);
+                Self::get_pathfinder_target(map, pathfinder_search_query, character_data, pathfinder, position);
                 if skip_turn.skip_at != 0 && skip_turn.count == skip_turn.skip_at {
                     skip_turn.count = 0;
                     *movement_input = MovementInput::Idle;
@@ -145,19 +207,27 @@ impl Behavior {
 
 impl Position {
     fn successors(&self, map: &Map, target: &Position) -> Vec<(Position, u32)> {
+        self.neighbors(map, target).into_iter().map(|p| (p, 1)).collect()
+    }
+    fn is_neighbor(&self, map: &Map) -> bool {
+        if let Some(tile) = map.get(self.x as usize, self.y as usize) {
+            !tile.is_occupied()
+        } else {
+            false
+        }
+    }
+    fn neighbors(&self, map: &Map, target: &Position) -> Vec<Position> {
         let mut neighbors = Vec::<Position>::with_capacity(4);
         let mut add_to_neighbors = |position: Position| {
-            if let Some(tile) = map.get(position.x as usize, position.y as usize) {
-                if !tile.is_occupied() || position == *target {
-                    neighbors.push(position);
-                }
+            if position.is_neighbor(map) || position == *target {
+                neighbors.push(position);
             }
         };
         add_to_neighbors(Position::new(self.x, self.y + 1));
         add_to_neighbors(Position::new(self.x + 1, self.y));
         add_to_neighbors(Position::new(self.x, self.y - 1));
         add_to_neighbors(Position::new(self.x - 1, self.y));
-        neighbors.into_iter().map(|p| (p, 1)).collect()
+        neighbors
     }
     fn distance(&self, position: &Position) -> u32 {
         let diff = position - self;
