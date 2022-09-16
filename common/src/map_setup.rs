@@ -29,6 +29,16 @@ impl Map {
     }
 }
 
+impl Map {
+    fn set_krill_theater_lineup(&mut self, x: usize, y: usize, position: Position) {
+        if let Some(tile) = self.get_mut(x, y) {
+            match tile {
+                Tile::Ground { zone, .. } => *zone = Zone::KrillTheater { zone: KrillTheaterZone::LineUp(position) },
+                _ => {},
+            }
+        }
+    }
+}
 pub fn town(map: &mut Map) {
     map.initialize::<220, 60>();
 
@@ -40,31 +50,41 @@ pub fn town(map: &mut Map) {
         );
     }
 
-    home(map, Position::new(0, 0), Position::new(20, 10), Zone::KrillTheater { zone: KrillTheaterZone::Free });
-    for y in [2, 7] {
-        for x in 2..18 {
-            if let Some(tile) = map.get_mut(x, y) {
-                match tile {
-                    Tile::Ground { zone, .. } => *zone = Zone::KrillTheater { zone: KrillTheaterZone::LineUp },
-                    _ => {},
+    {
+        const MIN_POSITION_Y: usize = 3;
+        const MAX_POSITION_Y: usize = 6;
+        const MIN_POSITION_X: usize = 2;
+        const MAX_POSITION_X: usize = 17;
+        home(map, Position::new(0, 0), Position::new(20, 10), Zone::KrillTheater { zone: KrillTheaterZone::Free });
+        for y in [(2, Position::new(MAX_POSITION_X as i32, MIN_POSITION_Y as i32)), (7, Position::new(MIN_POSITION_X as i32, MAX_POSITION_Y as i32))] {
+            for x in MIN_POSITION_X..=MAX_POSITION_X {
+                if let Some(tile) = map.get_mut(x, y.0) {
+                    match tile {
+                        Tile::Ground { zone, .. } => *zone = Zone::KrillTheater { zone: KrillTheaterZone::LineUp(y.1) },
+                        _ => {},
+                    }
+                    //*tile = Tile::Wall;
                 }
-                //*tile = Tile::Wall;
             }
         }
-    }
-    for x in [2, 17] {
-        for y in 3..7 {
-            if let Some(tile) = map.get_mut(x, y) {
-                match tile {
-                    Tile::Ground { zone, .. } => *zone = Zone::KrillTheater { zone: KrillTheaterZone::LineUp },
-                    _ => {},
+        for x in [(2, Position::new(MIN_POSITION_X as i32, MIN_POSITION_Y as i32)), (17, Position::new(MAX_POSITION_X as i32, MAX_POSITION_Y as i32))] {
+            for y in MIN_POSITION_Y..=MAX_POSITION_Y {
+                if let Some(tile) = map.get_mut(x.0, y) {
+                    match tile {
+                        Tile::Ground { zone, .. } => *zone = Zone::KrillTheater { zone: KrillTheaterZone::LineUp(x.1) },
+                        _ => {},
+                    }
+                    //*tile = Tile::Wall;
                 }
-                //*tile = Tile::Wall;
             }
         }
-    }
-    if let Some(tile) = map.get_mut(19, 7) {
-        *tile = Tile::default_ground()
+        map.set_krill_theater_lineup(MAX_POSITION_X, MAX_POSITION_Y, Position::new(MIN_POSITION_X as i32, MAX_POSITION_Y as i32));
+        map.set_krill_theater_lineup(MIN_POSITION_X, MAX_POSITION_Y, Position::new(MIN_POSITION_X as i32, MIN_POSITION_Y as i32));
+        map.set_krill_theater_lineup(MIN_POSITION_X, MIN_POSITION_Y, Position::new(MAX_POSITION_X as i32, MIN_POSITION_Y as i32));
+        map.set_krill_theater_lineup(MAX_POSITION_X, MIN_POSITION_Y, Position::new(MAX_POSITION_X as i32, MAX_POSITION_Y as i32));
+        if let Some(tile) = map.get_mut(19, 7) {
+            *tile = Tile::default_ground()
+        }
     }
 
     home(map, Position::new(29, 49), Position::new(29 + 10, 49 + 10), Zone::Home);

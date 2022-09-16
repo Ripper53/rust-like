@@ -97,8 +97,8 @@ impl Behavior {
             let mut found_target = false;
             if let Some((_, target)) = search_query.iter().min_by(|(data_a, pos_a), (data_b, pos_b)| {
                 if **data_a == target_character_data {
+                    found_target = true;
                     if **data_b == target_character_data {
-                        found_target = true;
                         let diff_a = position.distance(pos_a);
                         let diff_b = position.distance(pos_b);
                         diff_a.cmp(&diff_b)
@@ -106,6 +106,7 @@ impl Behavior {
                         Ordering::Less
                     }
                 } else if **data_b == target_character_data {
+                    found_target = true;
                     Ordering::Greater
                 } else {
                     Ordering::Equal
@@ -138,40 +139,12 @@ impl Behavior {
                                 KrillTheaterZone::Free => {
                                     get_random_target(pathfinder);
                                 },
-                                KrillTheaterZone::LineUp => {
-                                    let check = |position: &Position| {
-                                        if let Some(tile) = map.get(position.x as usize, position.y as usize) {
-                                            if !tile.is_occupied() {
-                                                if let Some(krill_theater) = tile.krill_theater() {
-                                                    if let KrillTheaterZone::LineUp = krill_theater {
-                                                        return true;
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        false
-                                    };
-                                    let north = Position::new(position.x, position.y + 1);
-                                    let east = Position::new(position.x - 1, position.y);
-                                    let south = Position::new(position.x, position.y - 1);
-                                    let west = Position::new(position.x - 1, position.y);
-                                    if check(&north) {
-                                        if check(&east) {
-                                            pathfinder.current_goal = east;
-                                        } else if check(&west) {
-                                            pathfinder.current_goal = north;
-                                        }
-                                    } else if check(&east) {
-                                        if check(&south) {
-                                            pathfinder.current_goal = south;
-                                        }
-                                    } else if check(&south) {
-                                        if check(&west) {
-                                            pathfinder.current_goal = west;
-                                        }
-                                    }
+                                KrillTheaterZone::LineUp(target) => {
+                                    pathfinder.current_goal = *target;
                                 },
                             }
+                        } else {
+                            get_random_target(pathfinder);
                         }
                     }
                 }

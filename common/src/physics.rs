@@ -12,7 +12,7 @@ pub enum Zone {
 #[derive(Clone)]
 pub enum KrillTheaterZone {
     Free,
-    LineUp
+    LineUp(Position),
 }
 impl Tile {
     pub fn krill_theater(&self) -> Option<&KrillTheaterZone> {
