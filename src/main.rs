@@ -7,7 +7,7 @@ fn setup(mut commands: Commands, mut map: ResMut<Map>) {
     map.spawn_character(
         &mut commands,
         common::character::Sprite::new('@'),
-        Position::new(1, 2),
+        Position::new(200, 2),
         Velocity::new(0, 0),
         CharacterType::Player,
         |mut entity_commands| {

@@ -46,8 +46,11 @@ impl Occupier {
     }
 }
 impl Tile {
+    pub fn new_ground(zone: Zone) -> Self {
+        Tile::Ground { occupier: None, zone }
+    }
     pub fn default_ground() -> Self {
-        Tile::Ground { occupier: None, zone: Zone::Road }
+        Self::new_ground(Zone::Road)
     }
     pub fn is_occupied(&self) -> bool {
         match self {

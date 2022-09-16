@@ -2,27 +2,27 @@ use crate::physics::{Map, Tile, Position, Zone, KrillTheaterZone};
 
 impl Map {
     fn create_room<F: Fn(&mut Tile)>(&mut self, bottom_left: Position, top_right: Position, place_tile: F) {
-        for y in bottom_left.y..top_right.y {
-            for x in bottom_left.x..top_right.x {
+        for y in bottom_left.y..=top_right.y {
+            for x in bottom_left.x..=top_right.x {
                 if let Some(tile) = self.get_mut(x as usize, y as usize) {
                     place_tile(tile);
                 }
             }
         }
         // Borders
-        for y in bottom_left.y..top_right.y {
+        for y in bottom_left.y..=top_right.y {
             if let Some(tile) = self.get_mut(bottom_left.x as usize, y as usize) {
                 *tile = Tile::Wall;
             }
-            if let Some(tile) = self.get_mut(top_right.x as usize - 1, y as usize) {
+            if let Some(tile) = self.get_mut(top_right.x as usize, y as usize) {
                 *tile = Tile::Wall;
             }
         }
-        for x in bottom_left.x..top_right.x {
+        for x in bottom_left.x..=top_right.x {
             if let Some(tile) = self.get_mut(x as usize, bottom_left.y as usize) {
                 *tile = Tile::Wall;
             }
-            if let Some(tile) = self.get_mut(x as usize, top_right.y as usize - 1) {
+            if let Some(tile) = self.get_mut(x as usize, top_right.y as usize) {
                 *tile = Tile::Wall;
             }
         }
@@ -40,7 +40,7 @@ impl Map {
     }
 }
 pub fn town(map: &mut Map) {
-    map.initialize::<220, 60>();
+    map.initialize::<220, 80>();
 
     fn home(map: &mut Map, bottom_left: Position, top_right: Position, zone: Zone) {
         map.create_room(
@@ -51,30 +51,32 @@ pub fn town(map: &mut Map) {
     }
 
     {
-        const MIN_POSITION_Y: usize = 3;
-        const MAX_POSITION_Y: usize = 6;
-        const MIN_POSITION_X: usize = 2;
-        const MAX_POSITION_X: usize = 17;
-        home(map, Position::new(0, 0), Position::new(20, 10), Zone::KrillTheater { zone: KrillTheaterZone::Free });
-        for y in [(2, Position::new(MAX_POSITION_X as i32, MIN_POSITION_Y as i32)), (7, Position::new(MIN_POSITION_X as i32, MAX_POSITION_Y as i32))] {
+        const MIN_HOME_POSITION: Position = Position { x: 60, y: 8 };
+        const MAX_HOME_POSITION: Position = Position { x: 160, y: 40 };
+        const OFFSET: usize = 2;
+        const MIN_POSITION_X: usize = MIN_HOME_POSITION.x as usize + OFFSET;
+        const MAX_POSITION_X: usize = MAX_HOME_POSITION.x as usize - OFFSET;
+        const MIN_POSITION_Y: usize = MIN_HOME_POSITION.y as usize + OFFSET;
+        const MAX_POSITION_Y: usize = MAX_HOME_POSITION.y as usize - OFFSET;
+        home(map, MIN_HOME_POSITION, MAX_HOME_POSITION, Zone::KrillTheater { zone: KrillTheaterZone::Free });
+
+        for y in [(MIN_POSITION_Y, Position::new(MAX_POSITION_X as i32, MIN_POSITION_Y as i32)), (MAX_POSITION_Y, Position::new(MIN_POSITION_X as i32, MAX_POSITION_Y as i32))] {
             for x in MIN_POSITION_X..=MAX_POSITION_X {
                 if let Some(tile) = map.get_mut(x, y.0) {
                     match tile {
                         Tile::Ground { zone, .. } => *zone = Zone::KrillTheater { zone: KrillTheaterZone::LineUp(y.1) },
                         _ => {},
                     }
-                    //*tile = Tile::Wall;
                 }
             }
         }
-        for x in [(2, Position::new(MIN_POSITION_X as i32, MIN_POSITION_Y as i32)), (17, Position::new(MAX_POSITION_X as i32, MAX_POSITION_Y as i32))] {
+        for x in [(MIN_POSITION_X, Position::new(MIN_POSITION_X as i32, MIN_POSITION_Y as i32)), (MAX_POSITION_X, Position::new(MAX_POSITION_X as i32, MAX_POSITION_Y as i32))] {
             for y in MIN_POSITION_Y..=MAX_POSITION_Y {
                 if let Some(tile) = map.get_mut(x.0, y) {
                     match tile {
                         Tile::Ground { zone, .. } => *zone = Zone::KrillTheater { zone: KrillTheaterZone::LineUp(x.1) },
                         _ => {},
                     }
-                    //*tile = Tile::Wall;
                 }
             }
         }
@@ -82,8 +84,16 @@ pub fn town(map: &mut Map) {
         map.set_krill_theater_lineup(MIN_POSITION_X, MAX_POSITION_Y, Position::new(MIN_POSITION_X as i32, MIN_POSITION_Y as i32));
         map.set_krill_theater_lineup(MIN_POSITION_X, MIN_POSITION_Y, Position::new(MAX_POSITION_X as i32, MIN_POSITION_Y as i32));
         map.set_krill_theater_lineup(MAX_POSITION_X, MIN_POSITION_Y, Position::new(MAX_POSITION_X as i32, MAX_POSITION_Y as i32));
-        if let Some(tile) = map.get_mut(19, 7) {
-            *tile = Tile::default_ground()
+
+        for position in [
+            (MIN_HOME_POSITION.x as usize + (MAX_HOME_POSITION.x as usize - MIN_HOME_POSITION.x as usize) / 2 as usize, MAX_HOME_POSITION.y as usize),
+            (MIN_HOME_POSITION.x as usize + (MAX_HOME_POSITION.x as usize - MIN_HOME_POSITION.x as usize) / 2 as usize + 1, MAX_HOME_POSITION.y as usize),
+            (MIN_HOME_POSITION.x as usize + 8, MIN_HOME_POSITION.y as usize),
+            (MAX_HOME_POSITION.x as usize - 8, MIN_HOME_POSITION.y as usize),
+        ] {
+            if let Some(tile) = map.get_mut(position.0, position.1) {
+                *tile = Tile::new_ground(Zone::KrillTheater { zone: KrillTheaterZone::Free });
+            }
         }
     }
 
