@@ -36,6 +36,12 @@ impl Health {
             max: value,
         }
     }
+    pub fn heal(&mut self, value: i32) {
+        self.value += value;
+        if self.value > self.max {
+            self.value = self.max;
+        }
+    }
 }
 
 #[derive(Bundle)]
@@ -45,6 +51,7 @@ pub struct CharacterBundle {
     pub position: Position,
     pub velocity: Velocity,
     pub interact: Interact,
+    pub health: Health,
     pub data: CharacterType,
 }
 

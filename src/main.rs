@@ -9,6 +9,7 @@ fn setup(mut commands: Commands, mut map: ResMut<Map>) {
         common::character::Sprite::new('@'),
         Position::new(200, 2),
         Velocity::new(0, 0),
+        Health::new(1),
         CharacterType::Player,
         |mut entity_commands| {
             entity_commands.insert(PlayerTag);
@@ -48,7 +49,14 @@ fn main() {
         .set_runner(runner)
         .init_resource::<PlayerInput>()
         .insert_resource(Dialogue::default())
-        .insert_resource(Inventory { items: vec![Item::Food; 4] })
+        .insert_resource(Inventory { items: vec![
+            Box::new(Item::new_apple()),
+            Box::new(Item::new_apple()),
+            Box::new(Item::new_banana()),
+            Box::new(Item::new_apple()),
+            Box::new(Item::new_banana()),
+            Box::new(Item::new_apple()),
+        ] })
         .init_resource::<Map>()
         .add_startup_system(setup)
 

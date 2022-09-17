@@ -1,7 +1,7 @@
 use std::{time::{Duration, Instant}, thread, sync::mpsc::Receiver};
 
 use bevy::prelude::{App, ResMut, Query, With, CoreStage};
-use common::{physics::*, character::{PlayerInput, MovementInput, PlayerTag}, dialogue::Dialogue, inventory::{Inventory, Item}};
+use common::{physics::*, character::{PlayerInput, MovementInput, PlayerTag, Health}, dialogue::Dialogue, inventory::{Inventory, Item}};
 use crossterm::{
     terminal::enable_raw_mode, event, execute,
 };
@@ -58,7 +58,7 @@ enum Menu {
 impl From<&Menu> for usize {
     fn from(input: &Menu) -> Self {
         match input {
-            Menu::World { .. } => 0,
+            Menu::World => 0,
             Menu::Inventory => 1,
             Menu::Settings => 2,
         }
@@ -89,7 +89,7 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     let rx = setup_terminal()?;
     execute!(std::io::stdout(), crossterm::terminal::EnterAlternateScreen).ok();
     let backend = CrosstermBackend::new(std::io::stdout());
-    
+
     let mut terminal = Terminal::new(backend)?;
     terminal.clear()?;
 
@@ -104,14 +104,14 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
             let dialogue = app.world.resource::<Dialogue>();
             let top_layout = Layout::default()
                 .direction(tui::layout::Direction::Horizontal)
+                .margin(MARGIN)
                 .constraints([
-                    Constraint::Min(6),
-                    Constraint::Min(6),
+                    Constraint::Percentage(80),
+                    Constraint::Percentage(20),
                 ])
                 .split(rect.size());
             let main_layout = Layout::default()
                 .direction(tui::layout::Direction::Vertical)
-                .margin(MARGIN)
                 .constraints([
                     Constraint::Length(3),
                     Constraint::Min(3),
@@ -176,6 +176,11 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                 .divider("|");
 
             rect.render_widget(tabs, main_layout[0]);
+
+            // BRUH
+            let info = Paragraph::new("text")
+                .block(Block::default().borders(Borders::ALL).title("Info"));
+            rect.render_widget(info, top_layout[1]);
         })?;
 
         match rx.recv()? {
@@ -251,6 +256,29 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                                         }
                                     } else {
                                         camera_data.selection.select(Some(0));
+                                    }
+                                },
+                                event::KeyCode::Enter => {
+                                    let camera_data = app.world.resource::<CameraData>();
+                                    if let Some(current_value) = camera_data.selection.selected() {
+                                        let inventory = app.world.resource_mut::<Inventory>();
+                                        let mut to_remove_index: Option<usize> = None;
+                                        if let Some(item) = inventory.items.get(current_value) {
+                                            match item.as_ref() {
+                                                Item::Food { heal, .. } => {
+                                                    let heal = heal.clone();
+                                                    to_remove_index = inventory.get_index(item);
+                                                    let mut query = app.world.query_filtered::<&mut Health, With<PlayerTag>>();
+                                                    for mut health in query.iter_mut(&mut app.world) {
+                                                        health.heal(heal);
+                                                    }
+                                                },
+                                            }
+                                        }
+                                        if let Some(index) = to_remove_index {
+                                            let mut inventory = app.world.resource_mut::<Inventory>();
+                                            inventory.items.remove(index);
+                                        }
                                     }
                                 },
                                 _ => switch_menu(&mut active_menu_item),

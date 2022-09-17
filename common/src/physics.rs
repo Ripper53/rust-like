@@ -1,6 +1,6 @@
 use std::hash::Hash;
 use bevy::{prelude::*, ecs::system::EntityCommands};
-use crate::{character::{CharacterBundle, Interact, CharacterType}, map_setup::town};
+use crate::{character::{CharacterBundle, Interact, CharacterType, Health}, map_setup::town};
 
 #[derive(Clone)]
 pub enum Zone {
@@ -34,6 +34,7 @@ pub enum Tile {
         zone: Zone,
     },
     Wall,
+    Obstacle,
 }
 #[derive(Clone)]
 pub struct Occupier {
@@ -55,7 +56,7 @@ impl Tile {
     pub fn is_occupied(&self) -> bool {
         match self {
             Tile::Ground { occupier, .. } => occupier.is_some(),
-            Tile::Wall => true,
+            Tile::Wall | Tile::Obstacle => true,
         }
     }
 }
@@ -107,6 +108,7 @@ impl Map {
         sprite: crate::character::Sprite,
         position: Position,
         velocity: Velocity,
+        health: Health,
         data: CharacterType,
         spawned_callback: fn(EntityCommands),
     ) {
@@ -122,6 +124,7 @@ impl Map {
                     sprite,
                     position,
                     velocity,
+                    health,
                     interact: Interact::from(&data),
                     data,
                 });

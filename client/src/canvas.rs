@@ -57,6 +57,7 @@ impl<'a> Widget for MapCanvas<'a> {
                             }
                         },
                         Tile::Wall => '#',
+                        Tile::Obstacle => '%',
                     };
                     text.push(character);
                 }

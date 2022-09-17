@@ -132,7 +132,6 @@ impl Behavior {
             CharacterType::Player => {},
             CharacterType::Lerain => {
                 if !get_target(pathfinder, CharacterType::Werewolf) && pathfinder.current_goal == *position {
-                    // If a target was not found, do idle behavior!
                     if let Some(tile) = map.get(position.x as usize, position.y as usize) {
                         if let Some(krill_theater) = tile.krill_theater() {
                             match krill_theater {
