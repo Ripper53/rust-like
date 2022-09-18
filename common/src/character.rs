@@ -1,5 +1,8 @@
+use std::collections::VecDeque;
+
 use bevy::prelude::*;
-use crate::{physics::*, dialogue::{Dialogue, DialogueOption}};
+use crossterm::style::Stylize;
+use crate::{physics::*, dialogue::{Dialogue, DialogueOption}, inventory::Equipment};
 
 #[derive(Component)]
 pub struct PlayerTag;
@@ -53,11 +56,38 @@ pub struct CharacterBundle {
     pub interact: Interact,
     pub health: Health,
     pub data: CharacterType,
+    pub action_history: ActionHistory,
+    pub equipment: Equipment,
 }
 
-#[derive(Debug, PartialEq)]
-pub struct CharacterResourceData {
-    health: u32,
+#[derive(Component)]
+pub struct ActionHistory {
+    movement_history: VecDeque<MovementInput>,
+    size: usize,
+}
+impl ActionHistory {
+    pub fn new(size: usize) -> Self {
+        ActionHistory {
+            movement_history: VecDeque::with_capacity(size),
+            size,
+        }
+    }
+    pub fn add(&mut self, movement_input: MovementInput) {
+        if self.movement_history.len() == self.size {
+            self.movement_history.pop_front();
+        }
+        self.movement_history.push_back(movement_input);
+    }
+}
+impl ToString for ActionHistory {
+    fn to_string(&self) -> String {
+        let mut text = String::new();
+        for movement in self.movement_history.iter().rev() {
+            text.push_str(movement.to_str());
+            text.push('\n');
+        }
+        text
+    }
 }
 #[derive(Component, Debug)]
 pub enum CharacterType {
@@ -110,6 +140,17 @@ pub enum MovementInput {
     East,
     South,
     West,
+}
+impl MovementInput {
+    fn to_str(&self) -> &'static str {
+        match self {
+            MovementInput::Idle => "Idle",
+            MovementInput::North => "North",
+            MovementInput::East => "East",
+            MovementInput::South => "South",
+            MovementInput::West => "West",
+        }
+    }
 }
 
 #[derive(Component)]
@@ -181,37 +222,39 @@ fn move_update(
     dialogue: &mut Dialogue,
     interact: &mut Interact,
     interact_query: &Query<&CharacterType>,
+    action_history: &mut ActionHistory,
 ) {
-    let mut move_position = |movement: Position| {
+    let mut move_position = |movement: Position, movement_input: MovementInput| {
         if check_collision(&mut map, entity, &position, &(*position + movement), sprite, dialogue, interact, interact_query) { return; }
         *position += movement;
+        action_history.add(movement_input);
     };
     match input {
-        MovementInput::North => move_position(Position::new(0, 1)),
-        MovementInput::East => move_position(Position::new(1, 0)),
-        MovementInput::South => move_position(Position::new(0, -1)),
-        MovementInput::West => move_position(Position::new(-1, 0)),
+        MovementInput::North => move_position(Position::new(0, 1), MovementInput::North),
+        MovementInput::East => move_position(Position::new(1, 0), MovementInput::East),
+        MovementInput::South => move_position(Position::new(0, -1), MovementInput::South),
+        MovementInput::West => move_position(Position::new(-1, 0), MovementInput::West),
         _ => {},
     }
 }
 pub fn player_movement_update(
     mut map: ResMut<Map>,
     mut dialogue: ResMut<Dialogue>,
-    mut player_query: Query<(Entity, &MovementInput, &mut Position, Option<&Sprite>, &mut Interact), With<PlayerTag>>,
+    mut player_query: Query<(Entity, &MovementInput, &mut Position, Option<&Sprite>, &mut Interact, &mut ActionHistory), With<PlayerTag>>,
     interact_query: Query<&CharacterType>,
 ) {
-    for (entity, input, mut position, sprite, mut interact) in player_query.iter_mut() {
-        move_update(&mut map, entity, input, &mut position, sprite, &mut dialogue, &mut interact, &interact_query);
+    for (entity, input, mut position, sprite, mut interact, mut action_history) in player_query.iter_mut() {
+        move_update(&mut map, entity, input, &mut position, sprite, &mut dialogue, &mut interact, &interact_query, &mut action_history);
     }
 }
 pub fn npc_movement_update(
     mut map: ResMut<Map>,
     mut dialogue: ResMut<Dialogue>,
-    mut npc_query: Query<(Entity, &MovementInput, &mut Position, Option<&Sprite>, &mut Interact), Without<PlayerTag>>,
+    mut npc_query: Query<(Entity, &MovementInput, &mut Position, Option<&Sprite>, &mut Interact, &mut ActionHistory), Without<PlayerTag>>,
     interact_query: Query<&CharacterType>,
 ) {
-    for (entity, input, mut position, sprite, mut interact) in npc_query.iter_mut() {
-        move_update(&mut map, entity, input, &mut position, sprite, &mut dialogue, &mut interact, &interact_query);
+    for (entity, input, mut position, sprite, mut interact, mut action_history) in npc_query.iter_mut() {
+        move_update(&mut map, entity, input, &mut position, sprite, &mut dialogue, &mut interact, &interact_query, &mut action_history);
     }
 }
 pub fn player_movement_input_update(player_input: Res<PlayerInput>, mut query: Query<(&mut MovementInput, With<PlayerTag>)>) {

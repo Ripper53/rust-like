@@ -1,9 +1,17 @@
+use bevy::prelude::*;
+
+use crate::{character::{PlayerTag, Health}, ActionInput};
+
 #[derive(Clone)]
 pub enum Item {
     Food {
         info: ItemBasicInfo,
         heal: i32,
-    }
+    },
+    Gun {
+        info: ItemBasicInfo,
+        damage: i32,
+    },
 }
 
 #[derive(Clone)]
@@ -15,12 +23,14 @@ pub struct ItemBasicInfo {
 impl Item {
     pub fn get_name(&self) -> String {
         match self {
-            Item::Food { info, .. } => info.name.clone(),
+            Item::Food { info, .. } |
+            Item::Gun { info, .. } => info.name.clone(),
         }
     }
     pub fn get_description(&self) -> String {
         match self {
-            Item::Food { info, .. } => info.description.clone(),
+            Item::Food { info, .. } |
+            Item::Gun { info, .. } => info.description.clone(),
         }
     }
     fn new_food(name: String, heal: i32) -> Self {
@@ -65,4 +75,33 @@ impl Inventory {
         }
         None
     }
+}
+
+#[derive(Component, Default)]
+pub struct Equipment {
+    pub equipped: Option<Box<Item>>,
+}
+
+pub fn inventory_update(
+    mut inventory: ResMut<Inventory>,
+    mut action_input: ResMut<ActionInput>,
+    mut query: Query<(&mut Health, &mut Equipment), With<PlayerTag>>,
+) {
+    for (mut health, mut equipment) in query.iter_mut() {
+        match *action_input {
+            ActionInput::None => { /* Take no action! */},
+            ActionInput::SelectFromInventory(index) => {
+                if let Some(item) = inventory.items.get_mut(index) {
+                    match item.as_mut() {
+                        Item::Food { heal, .. } => {
+                            health.heal(*heal);
+                            inventory.items.remove(index);
+                        },
+                        Item::Gun { .. } => equipment.equipped = Some(inventory.items.remove(index)),
+                    }
+                }
+            },
+        }
+    }
+    *action_input = ActionInput::None;
 }

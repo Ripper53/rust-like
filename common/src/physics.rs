@@ -1,6 +1,6 @@
 use std::hash::Hash;
 use bevy::{prelude::*, ecs::system::EntityCommands};
-use crate::{character::{CharacterBundle, Interact, CharacterType, Health}, map_setup::town};
+use crate::{character::{CharacterBundle, Interact, CharacterType, Health, ActionHistory}, map_setup::town, inventory::Equipment};
 
 #[derive(Clone)]
 pub enum Zone {
@@ -127,6 +127,8 @@ impl Map {
                     health,
                     interact: Interact::from(&data),
                     data,
+                    action_history: ActionHistory::new(60),
+                    equipment: Equipment::default(),
                 });
                 spawned_callback(entity);
             }

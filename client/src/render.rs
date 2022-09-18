@@ -1,7 +1,7 @@
-use std::{time::{Duration, Instant}, thread, sync::mpsc::Receiver};
+use std::{time::{Duration, Instant}, thread::{self, current}, sync::mpsc::Receiver};
 
-use bevy::prelude::{App, ResMut, Query, With, CoreStage};
-use common::{physics::*, character::{PlayerInput, MovementInput, PlayerTag, Health}, dialogue::Dialogue, inventory::{Inventory, Item}};
+use bevy::prelude::{App, ResMut, Query, With, CoreStage, State};
+use common::{physics::*, character::{PlayerInput, MovementInput, PlayerTag, Health, ActionHistory}, dialogue::Dialogue, inventory::{Inventory, Item, Equipment}, ActionInput, Scene};
 use crossterm::{
     terminal::enable_raw_mode, event, execute,
 };
@@ -177,8 +177,13 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
 
             rect.render_widget(tabs, main_layout[0]);
 
-            // BRUH
-            let info = Paragraph::new("text")
+            // Info
+            let mut info_text = String::new();
+            let mut action_history_query = app.world.query_filtered::<&ActionHistory, With<PlayerTag>>();
+            for action_history in action_history_query.iter(&app.world) {
+                info_text.push_str(&action_history.to_string());
+            }
+            let info = Paragraph::new(info_text)
                 .block(Block::default().borders(Borders::ALL).title("Info"));
             rect.render_widget(info, top_layout[1]);
         })?;
@@ -186,11 +191,16 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         match rx.recv()? {
             Event::Input(input) => {
                 if let event::Event::Key(key) = input {
-                    let switch_menu = |menu: &mut Menu| {
+                    let mut switch_menu = |menu: &mut Menu| {
+                        let mut set_menu = |m: Menu, s: Scene| {
+                            *menu = m;
+                            let mut scene = app.world.resource_mut::<State<Scene>>();
+                            scene.set(s).ok();
+                        };
                         match key.code {
-                            event::KeyCode::Char('w') | event::KeyCode::Char('W') => *menu = Menu::World,
-                            event::KeyCode::Char('i') | event::KeyCode::Char('I') => *menu = Menu::Inventory,
-                            event::KeyCode::Char('s') | event::KeyCode::Char('S') => *menu = Menu::Settings,
+                            event::KeyCode::Char('w') | event::KeyCode::Char('W') => set_menu(Menu::World, Scene::Map),
+                            event::KeyCode::Char('i') | event::KeyCode::Char('I') => set_menu(Menu::Inventory, Scene::Inventory),
+                            event::KeyCode::Char('s') | event::KeyCode::Char('S') => set_menu(Menu::Settings, Scene::Settings),
                             _ => {},
                         }
                     };
@@ -261,28 +271,13 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                                 event::KeyCode::Enter => {
                                     let camera_data = app.world.resource::<CameraData>();
                                     if let Some(current_value) = camera_data.selection.selected() {
-                                        let inventory = app.world.resource_mut::<Inventory>();
-                                        let mut to_remove_index: Option<usize> = None;
-                                        if let Some(item) = inventory.items.get(current_value) {
-                                            match item.as_ref() {
-                                                Item::Food { heal, .. } => {
-                                                    let heal = heal.clone();
-                                                    to_remove_index = inventory.get_index(item);
-                                                    let mut query = app.world.query_filtered::<&mut Health, With<PlayerTag>>();
-                                                    for mut health in query.iter_mut(&mut app.world) {
-                                                        health.heal(heal);
-                                                    }
-                                                },
-                                            }
-                                        }
-                                        if let Some(index) = to_remove_index {
-                                            let mut inventory = app.world.resource_mut::<Inventory>();
-                                            inventory.items.remove(index);
-                                        }
+                                        let mut action_input = app.world.resource_mut::<ActionInput>();
+                                        *action_input = ActionInput::SelectFromInventory(current_value);
                                     }
                                 },
                                 _ => switch_menu(&mut active_menu_item),
                             }
+                            app.update();
                         },
                         Menu::Settings => {
                             match key.code {
@@ -295,6 +290,7 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                                 },
                                 _ => switch_menu(&mut active_menu_item),
                             }
+                            app.update();
                         },
                     }
                 }

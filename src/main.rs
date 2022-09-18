@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use client::render::*;
-use common::{physics::*, character::*, map_brain::{Behavior, BehaviorData}, dialogue::Dialogue, inventory::{Inventory, Item}, util::{spawn_lerain, spawn_werewolf}};
+use common::{physics::*, character::*, dialogue::Dialogue, inventory::{Inventory, Item, inventory_update}, util::{spawn_lerain, spawn_werewolf}, ActionInput, Scene};
 use iyes_loopless::condition::IntoConditionalExclusiveSystem;
 
 fn setup(mut commands: Commands, mut map: ResMut<Map>) {
@@ -45,9 +45,13 @@ fn main() {
     const BRAIN_UPDATE_LABEL: &str = "brain_update";
     const NPC_MOVEMENT_UPDATE: &str = "npc_movement_update";
 
+    const INVENTORY_LABEL : &str = "inventory_update";
+
     App::new()
         .set_runner(runner)
+        .add_state(Scene::Map)
         .init_resource::<PlayerInput>()
+        .insert_resource(ActionInput::None)
         .insert_resource(Dialogue::default())
         .insert_resource(Inventory { items: vec![
             Box::new(Item::new_apple()),
@@ -60,33 +64,43 @@ fn main() {
         .init_resource::<Map>()
         .add_startup_system(setup)
 
-        .add_system(
-            player_movement_input_update
-                .run_if_not(in_conversation_condition)
-                .label(PLAYER_INPUT_LABEL)
+        .add_system_set(SystemSet::on_update(Scene::Map)
+            .with_system(
+                player_movement_input_update
+                    .run_if_not(in_conversation_condition)
+                    .label(PLAYER_INPUT_LABEL)
+            )
+            .with_system(
+                player_movement_update
+                    .run_if_not(in_conversation_condition)
+                    .label(PLAYER_MOVEMENT_LABEL)
+                    .after(PLAYER_INPUT_LABEL)
+            )
+            .with_system(
+                common::map_brain::brain_update
+                    .run_if_not(in_conversation_condition)
+                    .label(BRAIN_UPDATE_LABEL)
+                    .after(PLAYER_MOVEMENT_LABEL)
+            )
+            .with_system(
+                npc_movement_update
+                    .run_if_not(in_conversation_condition)
+                    .label(NPC_MOVEMENT_UPDATE)
+                    .after(BRAIN_UPDATE_LABEL)
+            )
+            .with_system(
+                physics_update
+                    .run_if_not(in_conversation_condition)
+                    .after(NPC_MOVEMENT_UPDATE)
+            )
         )
-        .add_system(
-            player_movement_update
-                .run_if_not(in_conversation_condition)
-                .label(PLAYER_MOVEMENT_LABEL)
-                .after(PLAYER_INPUT_LABEL)
-        )
-        .add_system(
-            common::map_brain::brain_update
-                .run_if_not(in_conversation_condition)
-                .label(BRAIN_UPDATE_LABEL)
-                .after(PLAYER_MOVEMENT_LABEL)
-        )
-        .add_system(
-            npc_movement_update
-                .run_if_not(in_conversation_condition)
-                .label(NPC_MOVEMENT_UPDATE)
-                .after(BRAIN_UPDATE_LABEL)
-        )
-        .add_system(
-            physics_update
-                .run_if_not(in_conversation_condition)
-                .after(NPC_MOVEMENT_UPDATE)
+
+        .add_system_set(SystemSet::on_update(Scene::Inventory)
+            .with_system(
+                inventory_update
+                    .run_if_not(in_conversation_condition)
+                    .label(INVENTORY_LABEL)
+            )
         )
 
         .run();

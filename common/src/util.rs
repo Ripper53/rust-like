@@ -1,12 +1,32 @@
-use bevy::prelude::Commands;
+use bevy::{prelude::Commands, ecs::system::EntityCommands};
 use crate::{physics::{Map, Position, Velocity}, character::{Sprite, CharacterType, Health}, map_brain::Behavior};
 
-pub fn spawn_lerain(commands: &mut Commands, map: &mut Map, position: Position) {
+fn spawn_character(
+    commands: &mut Commands,
+    map: &mut Map,
+    sprite: Sprite,
+    position: Position,
+    health: Health,
+    character_type: CharacterType,
+    spawned_callback: fn(EntityCommands),
+) {
     map.spawn_character(
         commands,
-        Sprite::new('L'),
+        sprite,
         position,
         Velocity::new(0, 0),
+        health,
+        character_type,
+        spawned_callback,
+    );
+}
+
+pub fn spawn_lerain(commands: &mut Commands, map: &mut Map, position: Position) {
+    spawn_character(
+        commands,
+        map,
+        Sprite::new('L'),
+        position,
         Health::new(1),
         CharacterType::Lerain,
         |mut entity_commands| {
@@ -14,15 +34,15 @@ pub fn spawn_lerain(commands: &mut Commands, map: &mut Map, position: Position) 
                 Behavior::default_slow_movement(),
             ]));
         },
-    );
+    )
 }
 
 pub fn spawn_rumdare(commands: &mut Commands, map: &mut Map, position: Position) {
-    map.spawn_character(
+    spawn_character(
         commands,
+        map,
         Sprite::new('R'),
         position,
-        Velocity::new(0, 0),
         Health::new(1),
         CharacterType::Rumdare,
         |mut entity_commands| {
@@ -34,11 +54,11 @@ pub fn spawn_rumdare(commands: &mut Commands, map: &mut Map, position: Position)
 }
 
 pub fn spawn_werewolf(commands: &mut Commands, map: &mut Map, position: Position) {
-    map.spawn_character(
+    spawn_character(
         commands,
+        map,
         Sprite::new('W'),
         position,
-        Velocity::new(0, 0),
         Health::new(1),
         CharacterType::Werewolf,
         |mut entity_commands| {
