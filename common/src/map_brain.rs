@@ -23,11 +23,11 @@ pub struct Pathfinder {
     path_index: usize,
 }
 impl Pathfinder {
-    fn execute(&mut self, map: &Map, movement_input: &mut MovementInput, position: &Position) {
+    fn execute(&mut self, collision_query: &Query<&CollisionType>, map: &Map, movement_input: &mut MovementInput, position: &Position) {
         // Calculate path.
         if let Some((path, _)) = astar(
             position,
-            |p| p.successors(map, &self.current_goal),
+            |p| p.successors(collision_query, map, &self.current_goal),
             |p| p.distance(&self.current_goal),
             |p| *p == self.current_goal,
         ) {
@@ -158,8 +158,8 @@ impl Behavior {
         character_data: &CharacterType,
         movement_input: &mut MovementInput,
         position: &Position,
-        velocity: &mut Velocity,
 
+        collision_query: &Query<&CollisionType>,
         pathfinder_search_query: &Query<(&CharacterType, &Position)>,
     ) {
         match self {
@@ -170,7 +170,7 @@ impl Behavior {
                     *movement_input = MovementInput::Idle;
                 } else {
                     skip_turn.count += 1;
-                    pathfinder.execute(map, movement_input, position);
+                    pathfinder.execute(collision_query, map, movement_input, position);
                 }
             },
         }
@@ -178,20 +178,30 @@ impl Behavior {
 }
 
 impl Position {
-    fn successors(&self, map: &Map, target: &Position) -> Vec<(Position, u32)> {
-        self.neighbors(map, target).into_iter().map(|p| (p, 1)).collect()
+    fn successors(&self, collision_query: &Query<&CollisionType>, map: &Map, target: &Position) -> Vec<(Position, u32)> {
+        self.neighbors(collision_query, map, target).into_iter().map(|p| (p, 1)).collect()
     }
-    fn is_neighbor(&self, map: &Map) -> bool {
+    fn is_neighbor(&self, collision_query: &Query<&CollisionType>, map: &Map) -> bool {
         if let Some(tile) = map.get(self.x as usize, self.y as usize) {
-            !tile.is_occupied()
+            match tile {
+                Tile::Ground { occupier, .. } | Tile::Obstacle { occupier } => {
+                    if let Some(occupier) = occupier {
+                        if let Ok(collision_type) = collision_query.get(occupier.entity) {
+                            return !tile.is_occupied(collision_type);
+                        }
+                    }
+                    !tile.is_occupied(&CollisionType::Default)
+                },
+                Tile::Wall => !tile.is_occupied(&CollisionType::Default),
+            }
         } else {
             false
         }
     }
-    fn neighbors(&self, map: &Map, target: &Position) -> Vec<Position> {
+    fn neighbors(&self, collision_query: &Query<&CollisionType>, map: &Map, target: &Position) -> Vec<Position> {
         let mut neighbors = Vec::<Position>::with_capacity(4);
         let mut add_to_neighbors = |position: Position| {
-            if position.is_neighbor(map) || position == *target {
+            if position.is_neighbor(collision_query, map) || position == *target {
                 neighbors.push(position);
             }
         };
@@ -208,29 +218,30 @@ impl Position {
 }
 
 pub fn brain_update(
-    mut query: Query<(&mut Brain, &mut MovementInput, &CharacterType, &Position, &mut Velocity)>,
+    mut query: Query<(&mut Brain, &mut MovementInput, &CharacterType, &Position)>,
     map: Res<Map>,
 
+    collision_query: Query<&CollisionType>,
     pathfinder_search_query: Query<(&CharacterType, &Position)>,
 ) {
-    query.par_for_each_mut(32, |(mut brain, mut movement_input, character_data, position, mut velocity)| {
+    for (mut brain, mut movement_input, character_data, position) in query.iter_mut() {
         for behavior in brain.behaviors.iter_mut() {
             if behavior.conditions.len() != 0 {
                 for condition in behavior.conditions.iter() {
                     if condition() {
                         behavior.behavior.execute(
-                            &map, character_data, &mut movement_input, position, &mut velocity,
-                            &pathfinder_search_query,
+                            &map, character_data, &mut movement_input, position,
+                            &collision_query, &pathfinder_search_query,
                         );
                         break;
                     }
                 }
             } else {
                 behavior.behavior.execute(
-                    &map, character_data, &mut movement_input, position, &mut velocity,
-                    &pathfinder_search_query,
+                    &map, character_data, &mut movement_input, position,
+                    &collision_query, &pathfinder_search_query,
                 );
             }
         }
-    });
+    }
 }

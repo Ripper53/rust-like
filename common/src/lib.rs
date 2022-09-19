@@ -13,6 +13,7 @@ pub enum ActionInput {
     None,
     /// Select item from inventory.
     SelectFromInventory(usize),
+    UseEquippedItem,
 }
 
 #[derive(SystemLabel, Debug, Clone, Hash, Eq, PartialEq)]

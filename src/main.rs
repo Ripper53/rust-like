@@ -7,8 +7,7 @@ fn setup(mut commands: Commands, mut map: ResMut<Map>) {
     map.spawn_character(
         &mut commands,
         common::character::Sprite::new('@'),
-        Position::new(200, 2),
-        Velocity::new(0, 0),
+        Position::new(50, 2),
         Health::new(1),
         CharacterType::Player,
         |mut entity_commands| {
@@ -45,7 +44,7 @@ fn main() {
     const BRAIN_UPDATE_LABEL: &str = "brain_update";
     const NPC_MOVEMENT_UPDATE: &str = "npc_movement_update";
 
-    const INVENTORY_LABEL : &str = "inventory_update";
+    const INVENTORY_LABEL: &str = "inventory_update";
 
     App::new()
         .set_runner(runner)
@@ -58,9 +57,15 @@ fn main() {
 
         .add_system_set(SystemSet::on_update(Scene::Map)
             .with_system(
+                inventory_update
+                    .run_if_not(in_conversation_condition)
+                    .label(INVENTORY_LABEL)
+            )
+            .with_system(
                 player_movement_input_update
                     .run_if_not(in_conversation_condition)
                     .label(PLAYER_INPUT_LABEL)
+                    .after(INVENTORY_LABEL)
             )
             .with_system(
                 player_movement_update
@@ -79,11 +84,6 @@ fn main() {
                     .run_if_not(in_conversation_condition)
                     .label(NPC_MOVEMENT_UPDATE)
                     .after(BRAIN_UPDATE_LABEL)
-            )
-            .with_system(
-                physics_update
-                    .run_if_not(in_conversation_condition)
-                    .after(NPC_MOVEMENT_UPDATE)
             )
         )
 

@@ -54,8 +54,8 @@ pub fn town(map: &mut Map) {
         map.create_room(
             bottom_left,
             top_right,
-            Tile::Obstacle,
-            |tile| *tile = Tile::Obstacle,
+            Tile::Obstacle { occupier: None },
+            |tile| *tile = Tile::Obstacle { occupier: None },
         );
     }
 

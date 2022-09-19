@@ -1,7 +1,6 @@
 use std::collections::VecDeque;
 
 use bevy::prelude::*;
-use crossterm::style::Stylize;
 use crate::{physics::*, dialogue::{Dialogue, DialogueOption}, inventory::{Equipment, Inventory}};
 
 #[derive(Component)]
@@ -52,13 +51,13 @@ pub struct CharacterBundle {
     pub input_data: MovementInput,
     pub sprite: Sprite,
     pub position: Position,
-    pub velocity: Velocity,
     pub interact: Interact,
     pub health: Health,
     pub data: CharacterType,
     pub action_history: ActionHistory,
     pub inventory: Inventory,
     pub equipment: Equipment,
+    pub collision_type: CollisionType,
 }
 
 #[derive(Component)]
@@ -78,6 +77,9 @@ impl ActionHistory {
             self.movement_history.pop_front();
         }
         self.movement_history.push_back(movement_input);
+    }
+    pub fn get_latest(&self) -> Option<&MovementInput> {
+        self.movement_history.back()
     }
 }
 impl ToString for ActionHistory {
@@ -100,22 +102,10 @@ pub enum CharacterType {
 impl PartialEq for CharacterType {
     fn eq(&self, other: &Self) -> bool {
         match self {
-            Self::Player => match other {
-                Self::Player => true,
-                _ => false,
-            },
-            Self::Lerain => match other {
-                Self::Lerain => true,
-                _ => false,
-            },
-            Self::Rumdare => match other {
-                Self::Rumdare => true,
-                _ => false,
-            },
-            Self::Werewolf => match other {
-                Self::Werewolf => true,
-                _ => false,
-            },
+            Self::Player => matches!(other, Self::Player),
+            Self::Lerain => matches!(other, Self::Lerain),
+            Self::Rumdare => matches!(other, Self::Rumdare),
+            Self::Werewolf => matches!(other, Self::Werewolf),
         }
     }
     fn ne(&self, other: &Self) -> bool {
@@ -134,13 +124,19 @@ impl From<&CharacterType> for Interact {
     }
 }
 
-#[derive(Component, Clone, Copy)]
+#[derive(Component, Debug, Clone, Copy)]
 pub enum MovementInput {
     Idle,
     North,
     East,
     South,
     West,
+}
+pub struct ToPositionError;
+impl std::fmt::Display for ToPositionError {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "cannot convert to position")
+    }
 }
 impl MovementInput {
     fn to_str(&self) -> &'static str {
@@ -152,6 +148,15 @@ impl MovementInput {
             MovementInput::West => "West",
         }
     }
+    pub fn to_position(&self) -> Result<Position, ToPositionError> {
+        match self {
+            MovementInput::Idle => Err(ToPositionError),
+            MovementInput::North => Ok(Position::new(0, 1)),
+            MovementInput::East => Ok(Position::new(1, 0)),
+            MovementInput::South => Ok(Position::new(0, -1)),
+            MovementInput::West => Ok(Position::new(-1, 0)),
+        }
+    }
 }
 
 #[derive(Component)]
@@ -160,53 +165,96 @@ pub enum Interact {
     Lerain,
     Rumdare,
     Werewolf,
+    Projectile {
+        recent_spawn: bool,
+        damage: i32,
+    },
 }
 impl Interact {
-    fn interact(&mut self, dialogue: &mut Dialogue, character_data: &CharacterType) {
+    fn interact(&mut self, dialogue: &mut Dialogue, character_type: &CharacterType) {
         match self {
             Interact::Player => {
                 dialogue.activate("Bruh".to_string(), vec![("Option 1".to_string(), DialogueOption::Leave)]);
             },
             Interact::Lerain | Interact::Rumdare | Interact::Werewolf => {},
+            Interact::Projectile { damage, .. } => {
+                // Collision!
+            },
         }
     }
 }
 
-/// True if collided, otherwise set tile to occupied and return false.
-fn check_collision(
+pub enum CollisionCheckResult {
+    NoCollision,
+    IsOccupied(Position),
+    TileDoesNotExist,
+    TileIsNotGround,
+}
+fn check_collision_and_move(
     map: &mut Map,
     entity: Entity,
-    current_position: &Position,
+    collision_type: &CollisionType,
+    current_position: &mut Position,
+    new_position: &Position,
+    sprite: Option<&Sprite>,
+) -> CollisionCheckResult {
+    let old_position = current_position.clone();
+    let mut place_character_at_new_position = || {
+        if let Some(tile) = new_position.get_mut_from_map(map) {
+            if tile.is_occupied(collision_type) {
+                CollisionCheckResult::IsOccupied(new_position.clone())
+            } else if let Tile::Ground { occupier, .. } | Tile::Obstacle { occupier } = tile {
+                *occupier = if let Some(s) = sprite {
+                    Some(Occupier::new(entity, *s))
+                } else {
+                    Some(Occupier::new(entity, Sprite::new('?')))
+                };
+                *current_position = new_position.clone();
+                CollisionCheckResult::NoCollision
+            } else {
+                CollisionCheckResult::TileIsNotGround
+            }
+        } else {
+            CollisionCheckResult::TileDoesNotExist
+        }
+    };
+    let result = place_character_at_new_position();
+    if matches!(result, CollisionCheckResult::NoCollision) {
+        let map = map;
+        if let Some(
+            Tile::Ground { occupier: ref mut old_value, .. } |
+            Tile::Obstacle { occupier: ref mut old_value }
+        ) = old_position.get_mut_from_map(map) {
+            *old_value = None;
+        }
+        CollisionCheckResult::NoCollision
+    } else {
+        result
+    }
+}
+/// True if collided, otherwise set tile to occupied and return false.
+pub fn check_collision_and_move_or_interact(
+    map: &mut Map,
+    entity: Entity,
+    collision_type: &CollisionType,
+    current_position: &mut Position,
     new_position: &Position,
     sprite: Option<&Sprite>,
     dialogue: &mut Dialogue,
     interact: &mut Interact,
     interact_query: &Query<&CharacterType>,
 ) -> bool {
-    let mut place_character_at_new_position = || {
-        if let Some(tile) = new_position.get_mut_from_map(map) {
-            if tile.is_occupied() {
-                if let Tile::Ground { occupier: occupier_option, .. } = tile {
-                    if let Some(occupier) = occupier_option {
-                        if let Ok(character_data) = interact_query.get(occupier.entity) {
-                            interact.interact(dialogue, character_data);
-                        }
-                    }
-                }
-            } else {
-                if let Tile::Ground { occupier: value, .. } = tile {
-                    if let Some(s) = sprite {
-                        *value = Some(Occupier::new(entity, *s));
-                        return true;
-                    }
+    let result = check_collision_and_move(map, entity, collision_type, current_position, new_position, sprite);
+    if let CollisionCheckResult::IsOccupied(position) = result {
+        if let Some(
+            Tile::Ground { occupier, .. } |
+            Tile::Obstacle { occupier }
+        ) = map.get_mut(position.x as usize, position.y as usize) {
+            if let Some(occupier) = occupier {
+                if let Ok(character_data) = interact_query.get(occupier.entity) {
+                    interact.interact(dialogue, character_data);
                 }
             }
-        }
-        false
-    };
-    if place_character_at_new_position() {
-        if let Some(Tile::Ground { occupier: ref mut old_value, .. }) = current_position.get_mut_from_map(map) {
-            *old_value = None;
         }
         false
     } else {
@@ -217,49 +265,73 @@ fn check_collision(
 fn move_update(
     mut map: &mut Map,
     entity: Entity,
+    collision_type: &CollisionType,
     input: &MovementInput,
     position: &mut Position,
     sprite: Option<&Sprite>,
     dialogue: &mut Dialogue,
     interact: &mut Interact,
     interact_query: &Query<&CharacterType>,
-    action_history: &mut ActionHistory,
+    action_history: Option<&mut ActionHistory>,
 ) {
-    let mut move_position = |movement: Position, movement_input: MovementInput| {
-        if check_collision(&mut map, entity, &position, &(*position + movement), sprite, dialogue, interact, interact_query) { return; }
-        *position += movement;
-        action_history.add(movement_input);
-    };
-    match input {
-        MovementInput::North => move_position(Position::new(0, 1), MovementInput::North),
-        MovementInput::East => move_position(Position::new(1, 0), MovementInput::East),
-        MovementInput::South => move_position(Position::new(0, -1), MovementInput::South),
-        MovementInput::West => move_position(Position::new(-1, 0), MovementInput::West),
-        _ => {},
+    if let Ok(movement) = input.to_position() {
+        if check_collision_and_move_or_interact(
+            &mut map,
+            entity,
+            collision_type,
+            position,
+            &(*position + movement),
+            sprite,
+            dialogue,
+            interact,
+            interact_query,
+        ) {
+            if let Some(action_history) = action_history {
+                action_history.add(*input);
+            }
+        }
     }
 }
 pub fn player_movement_update(
     mut map: ResMut<Map>,
     mut dialogue: ResMut<Dialogue>,
-    mut player_query: Query<(Entity, &MovementInput, &mut Position, Option<&Sprite>, &mut Interact, &mut ActionHistory), With<PlayerTag>>,
+    mut player_query: Query<(Entity, &MovementInput, &mut Position, Option<&Sprite>, &CollisionType, &mut Interact, Option<&mut ActionHistory>), With<PlayerTag>>,
     interact_query: Query<&CharacterType>,
 ) {
-    for (entity, input, mut position, sprite, mut interact, mut action_history) in player_query.iter_mut() {
-        move_update(&mut map, entity, input, &mut position, sprite, &mut dialogue, &mut interact, &interact_query, &mut action_history);
+    for (entity, input, mut position, sprite, collision_type, mut interact, mut action_history) in player_query.iter_mut() {
+        move_update(&mut map, entity, collision_type, input, &mut position, sprite, &mut dialogue, &mut interact, &interact_query, action_history.as_deref_mut());
     }
 }
 pub fn npc_movement_update(
     mut map: ResMut<Map>,
     mut dialogue: ResMut<Dialogue>,
-    mut npc_query: Query<(Entity, &MovementInput, &mut Position, Option<&Sprite>, &mut Interact, &mut ActionHistory), Without<PlayerTag>>,
+    mut npc_query: Query<(Entity, &mut MovementInput, &mut Position, Option<&Sprite>, &CollisionType, &mut Interact, Option<&mut ActionHistory>, Option<&Velocity>), Without<PlayerTag>>,
     interact_query: Query<&CharacterType>,
 ) {
-    for (entity, input, mut position, sprite, mut interact, mut action_history) in npc_query.iter_mut() {
-        move_update(&mut map, entity, input, &mut position, sprite, &mut dialogue, &mut interact, &interact_query, &mut action_history);
+    for (entity, mut movement_input, mut position, sprite, collision_type, mut interact, mut action_history, velocity) in npc_query.iter_mut() {
+        let times = if let Some(velocity) = velocity {
+            if let Interact::Projectile { recent_spawn, .. } = interact.as_mut() {
+                if *recent_spawn {
+                    *recent_spawn = false;
+                    1
+                } else {
+                    *movement_input = velocity.movement;
+                    velocity.speed
+                }
+            } else {
+                *movement_input = velocity.movement;
+                velocity.speed
+            }
+        } else {
+            1
+        };
+        for _ in 0..times {
+            move_update(&mut map, entity, collision_type, &movement_input, &mut position, sprite, &mut dialogue, &mut interact, &interact_query, action_history.as_deref_mut());
+        }
     }
 }
-pub fn player_movement_input_update(player_input: Res<PlayerInput>, mut query: Query<(&mut MovementInput, With<PlayerTag>)>) {
-    for (mut movement_input, _) in query.iter_mut() {
+pub fn player_movement_input_update(player_input: Res<PlayerInput>, mut query: Query<&mut MovementInput, With<PlayerTag>>) {
+    for mut movement_input in query.iter_mut() {
         *movement_input = player_input.input_movement;
     }
 }

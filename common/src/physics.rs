@@ -1,6 +1,6 @@
 use std::hash::Hash;
-use bevy::{prelude::*, ecs::system::EntityCommands};
-use crate::{character::{CharacterBundle, Interact, CharacterType, Health, ActionHistory}, map_setup::town, inventory::{Equipment, Inventory, Item}};
+use bevy::{ecs::system::EntityCommands, prelude::{Entity, Commands, World, FromWorld, Component}};
+use crate::{character::{CharacterBundle, Interact, CharacterType, Health, ActionHistory, MovementInput, self}, map_setup::town, inventory::{Equipment, Inventory, Item}};
 
 #[derive(Clone)]
 pub enum Zone {
@@ -34,7 +34,9 @@ pub enum Tile {
         zone: Zone,
     },
     Wall,
-    Obstacle,
+    Obstacle {
+        occupier: Option<Occupier>,
+    },
 }
 #[derive(Clone)]
 pub struct Occupier {
@@ -46,6 +48,12 @@ impl Occupier {
         Occupier { entity, sprite }
     }
 }
+
+#[derive(Component)]
+pub enum CollisionType {
+    Default,
+    Projectile,
+}
 impl Tile {
     pub fn new_ground(zone: Zone) -> Self {
         Tile::Ground { occupier: None, zone }
@@ -53,10 +61,11 @@ impl Tile {
     pub fn default_ground() -> Self {
         Self::new_ground(Zone::Road)
     }
-    pub fn is_occupied(&self) -> bool {
+    pub fn is_occupied(&self, collision_type: &CollisionType) -> bool {
         match self {
             Tile::Ground { occupier, .. } => occupier.is_some(),
-            Tile::Wall | Tile::Obstacle => true,
+            Tile::Wall => true,
+            Tile::Obstacle { occupier } => !matches!(collision_type, CollisionType::Projectile) || occupier.is_some(),
         }
     }
 }
@@ -102,12 +111,31 @@ impl Map {
     pub fn get_size_y(&self) -> usize {
         self.size_y
     }
-    pub fn spawn_character(
+    pub fn spawn<F: Fn(EntityCommands)>(
         &mut self,
         commands: &mut Commands,
         sprite: crate::character::Sprite,
         position: Position,
         velocity: Velocity,
+        spawned_callback: F,
+    ) {
+        if let Some(tile) = self.get_mut(position.x as usize, position.y as usize) {
+            if let Tile::Ground { occupier, .. } | Tile::Obstacle { occupier } = tile {
+                let mut entity = commands.spawn();
+                *occupier = Some(Occupier::new(entity.id(), sprite));
+                entity
+                    .insert(sprite)
+                    .insert(position)
+                    .insert(velocity);
+                spawned_callback(entity);
+            }
+        }
+    }
+    pub fn spawn_character(
+        &mut self,
+        commands: &mut Commands,
+        sprite: crate::character::Sprite,
+        position: Position,
         health: Health,
         data: CharacterType,
         spawned_callback: fn(EntityCommands),
@@ -123,13 +151,13 @@ impl Map {
                     input_data: crate::character::MovementInput::Idle,
                     sprite,
                     position,
-                    velocity,
                     health,
                     interact: Interact::from(&data),
                     data,
                     action_history: ActionHistory::new(60),
                     inventory: Inventory {
                         items: vec![
+                            Box::new(Item::new_pistol()),
                             Box::new(Item::new_apple()),
                             Box::new(Item::new_banana()),
                             Box::new(Item::new_apple()),
@@ -139,6 +167,7 @@ impl Map {
                         ],
                     },
                     equipment: Equipment::default(),
+                    collision_type: CollisionType::Default,
                 });
                 spawned_callback(entity);
             }
@@ -206,18 +235,6 @@ impl std::ops::AddAssign for Position {
         self.y += rhs.y;
     }
 }
-impl std::ops::Add<&Velocity> for Position {
-    type Output = Position;
-    fn add(self, rhs: &Velocity) -> Position {
-        Position::new(self.x + rhs.x, self.y + rhs.y)
-    }
-}
-impl std::ops::AddAssign<&Velocity> for Position {
-    fn add_assign(&mut self, rhs: &Velocity) {
-        self.x += rhs.x;
-        self.y += rhs.y;
-    }
-}
 impl std::ops::Sub for Position {
     type Output = Position;
     fn sub(self, rhs: Self) -> Self::Output {
@@ -236,25 +253,20 @@ impl std::ops::Mul for Position {
         Position::new(self.x * rhs.x, self.y * rhs.y)
     }
 }
-
-#[derive(Clone, Component)]
-pub struct Velocity {
-    pub x: i32,
-    pub y: i32,
-}
-impl Velocity {
-    pub fn new(x: i32, y: i32) -> Velocity {
-        Velocity { x, y }
+impl std::ops::Mul<i32> for Position {
+    type Output = Position;
+    fn mul(self, rhs: i32) -> Self::Output {
+        Position::new(self.x * rhs, self.y * rhs)
     }
 }
 
-pub fn physics_update(map: Res<Map>, mut query: Query<(&mut Position, &Velocity)>) {
-    query.par_for_each_mut(32, |(mut pos, vel)| {
-        let clone_pos = pos.clone() + vel;
-        if let Some(tile) = map.get(clone_pos.x as usize, clone_pos.y as usize) {
-            if matches!(tile, Tile::Ground { .. }) {
-                *pos += vel;
-            }
-        }
-    });
+#[derive(Clone, Component)]
+pub struct Velocity {
+    pub movement: MovementInput,
+    pub speed: i32,
+}
+impl Velocity {
+    pub fn new(movement: MovementInput, speed: i32) -> Velocity {
+        Velocity { movement, speed }
+    }
 }

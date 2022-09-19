@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{character::{PlayerTag, Health}, ActionInput};
+use crate::{character::{PlayerTag, Health, Sprite, MovementInput, ActionHistory}, ActionInput, physics::{Map, Position, Velocity}, util::spawn_projectile};
 
 #[derive(Clone)]
 pub enum Item {
@@ -11,6 +11,7 @@ pub enum Item {
     Gun {
         info: ItemBasicInfo,
         damage: i32,
+        speed: i32,
     },
 }
 
@@ -48,6 +49,19 @@ impl Item {
     pub fn new_banana() -> Self {
         Self::new_food("Banana".to_string(), 2)
     }
+
+    fn new_gun(name: String, description: String, damage: i32, speed: i32) -> Self {
+        Item::Gun {
+            info: ItemBasicInfo {
+                name, description,
+            },
+            damage,
+            speed,
+        }
+    }
+    pub fn new_pistol() -> Self {
+        Self::new_gun("Pistol".to_string(), "Gun".to_string(), 1, 2)
+    }
 }
 
 impl PartialEq for &Box<Item> {
@@ -83,10 +97,12 @@ pub struct Equipment {
 }
 
 pub fn inventory_update(
+    mut commands: Commands,
+    mut map: ResMut<Map>,
     mut action_input: ResMut<ActionInput>,
-    mut query: Query<(&mut Inventory, &mut Health, &mut Equipment), With<PlayerTag>>,
+    mut query: Query<(&Position, &mut Inventory, &mut Health, &mut Equipment, &ActionHistory), With<PlayerTag>>,
 ) {
-    for (mut inventory, mut health, mut equipment) in query.iter_mut() {
+    for (position, mut inventory, mut health, mut equipment, action_history) in query.iter_mut() {
         match *action_input {
             ActionInput::None => { /* Take no action! */},
             ActionInput::SelectFromInventory(index) => {
@@ -97,6 +113,28 @@ pub fn inventory_update(
                             inventory.items.remove(index);
                         },
                         Item::Gun { .. } => equipment.equipped = Some(inventory.items.remove(index)),
+                    }
+                }
+            },
+            ActionInput::UseEquippedItem => {
+                if let Some(equipped) = &equipment.equipped {
+                    match equipped.as_ref() {
+                        Item::Gun { damage, speed, .. } => {
+                            // Shoot projectile!
+                            if let Some(latest_movement_input) = action_history.get_latest() {
+                                if let Ok(movement) = latest_movement_input.to_position() {
+                                    spawn_projectile(
+                                        &mut commands,
+                                        &mut map,
+                                        Sprite::new('o'),
+                                        *position + movement,
+                                        Velocity::new(latest_movement_input.clone(), *speed),
+                                        *damage,
+                                    );
+                                }
+                            }
+                        },
+                        _ => {},
                     }
                 }
             },

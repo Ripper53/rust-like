@@ -1,7 +1,7 @@
-use std::{time::{Duration, Instant}, thread::{self, current}, sync::mpsc::Receiver};
+use std::{time::{Duration, Instant}, thread, sync::mpsc::Receiver};
 
 use bevy::prelude::{App, ResMut, Query, With, CoreStage, State};
-use common::{physics::*, character::{PlayerInput, MovementInput, PlayerTag, Health, ActionHistory}, dialogue::Dialogue, inventory::{Inventory, Item, Equipment}, ActionInput, Scene};
+use common::{physics::*, character::{PlayerInput, MovementInput, PlayerTag, ActionHistory}, dialogue::Dialogue, inventory::{Inventory, Equipment}, ActionInput, Scene};
 use crossterm::{
     terminal::enable_raw_mode, event, execute,
 };
@@ -150,7 +150,7 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                 Menu::Settings => {
                     let p = Paragraph::new("<ESC> to quit")
                         .block(Block::default().borders(Borders::ALL).title("Settings"));
-                    rect.render_widget(p, main_layout[1])
+                    rect.render_widget(p, main_layout[1]);
                 },
             }
 
@@ -211,12 +211,10 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                             let set_player_input_movement = |app: &mut App, movement_input: MovementInput| {
                                 let dialogue = app.world.resource::<Dialogue>();
                                 if dialogue.in_conversation { return; }
-                                {
-                                    let mut player_input = app.world.resource_mut::<PlayerInput>();
-                                    (*player_input).input_movement = movement_input;
-                                }
-                                app.update();
                                 let mut player_input = app.world.resource_mut::<PlayerInput>();
+                                (*player_input).input_movement = movement_input;
+                                app.update();
+                                player_input = app.world.resource_mut::<PlayerInput>();
                                 (*player_input).input_movement = MovementInput::Idle;
                             };
                             match key.code {
@@ -241,6 +239,16 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                                     let mut dialogue = app.world.resource_mut::<Dialogue>();
                                     if dialogue.in_conversation {
                                         dialogue.select();
+                                    }
+                                },
+                                event::KeyCode::Char(' ') => {
+                                    let mut query = app.world.query_filtered::<&Equipment, With<PlayerTag>>();
+                                    if let Ok(equipment) = query.get_single(&app.world) {
+                                        if equipment.equipped.is_some() {
+                                            let mut action_input = app.world.resource_mut::<ActionInput>();
+                                            *action_input = ActionInput::UseEquippedItem;
+                                            app.update();
+                                        }
                                     }
                                 },
                                 _ => switch_menu(&mut active_menu_item),

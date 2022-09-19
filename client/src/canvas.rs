@@ -49,15 +49,21 @@ impl<'a> Widget for MapCanvas<'a> {
             for x in start_x..size_x {
                 if let Some(tile) = self.map.get(x, size_y - 1 - y) {
                     let character = match tile {
-                        Tile::Ground { occupier: occupier_option, .. } => {
-                            if let Some(occupier) = occupier_option {
+                        Tile::Ground { occupier, .. } => {
+                            if let Some(occupier) = occupier {
                                 occupier.sprite.character
                             } else {
                                 ' '
                             }
                         },
                         Tile::Wall => '#',
-                        Tile::Obstacle => '%',
+                        Tile::Obstacle { occupier } => {
+                            if let Some(occupier) = occupier {
+                                occupier.sprite.character
+                            } else {
+                                '%'
+                            }
+                        },
                     };
                     text.push(character);
                 }

@@ -1,5 +1,20 @@
 use bevy::{prelude::Commands, ecs::system::EntityCommands};
-use crate::{physics::{Map, Position, Velocity}, character::{Sprite, CharacterType, Health}, map_brain::Behavior};
+use crate::{
+    physics::{
+        Map,
+        Position,
+        Velocity,
+        CollisionType,
+    },
+    character::{
+        Sprite,
+        CharacterType,
+        Health,
+        MovementInput,
+        Interact,
+    },
+    map_brain::Behavior,
+};
 
 fn spawn_character(
     commands: &mut Commands,
@@ -14,7 +29,6 @@ fn spawn_character(
         commands,
         sprite,
         position,
-        Velocity::new(0, 0),
         health,
         character_type,
         spawned_callback,
@@ -65,6 +79,31 @@ pub fn spawn_werewolf(commands: &mut Commands, map: &mut Map, position: Position
             entity_commands.insert(crate::map_brain::Brain::new(vec![
                 Behavior::skip_movement(4),
             ]));
+        },
+    );
+}
+
+pub fn spawn_projectile(
+    commands: &mut Commands,
+    map: &mut Map,
+    sprite: Sprite,
+    position: Position,
+    velocity: Velocity,
+    damage: i32,
+) {
+    map.spawn(
+        commands,
+        sprite,
+        position,
+        velocity,
+        |mut entity_commands| {
+            entity_commands
+                .insert(MovementInput::Idle)
+                .insert(Interact::Projectile {
+                    recent_spawn: true,
+                    damage,
+                })
+                .insert(CollisionType::Projectile);
         },
     );
 }
