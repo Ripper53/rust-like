@@ -134,16 +134,18 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                     rect.render_widget(canvas, main_layout[1]);
                 },
                 Menu::Inventory => {
-                    let player_inventory = app.world.resource::<Inventory>();
-                    let mut items = Vec::<ListItem>::with_capacity(player_inventory.items.len());
-                    for item in &player_inventory.items {
-                        items.push(ListItem::new(Text::raw(item.get_name())));
+                    let mut query = app.world.query_filtered::<&Inventory, With<PlayerTag>>();
+                    if let Ok(player_inventory) = query.get_single(&app.world) {
+                        let mut items = Vec::<ListItem>::with_capacity(player_inventory.items.len());
+                        for item in &player_inventory.items {
+                            items.push(ListItem::new(Text::raw(item.get_name())));
+                        }
+                        let item_list = List::new(items)
+                            .block(Block::default().borders(Borders::ALL).title("Inventory"))
+                            .highlight_symbol(">");
+                        let mut camera_data = app.world.resource_mut::<CameraData>();
+                        rect.render_stateful_widget(item_list, main_layout[1], &mut camera_data.selection);
                     }
-                    let item_list = List::new(items)
-                        .block(Block::default().borders(Borders::ALL).title("Inventory"))
-                        .highlight_symbol(">");
-                    let mut camera_data = app.world.resource_mut::<CameraData>();
-                    rect.render_stateful_widget(item_list, main_layout[1], &mut camera_data.selection);
                 },
                 Menu::Settings => {
                     let p = Paragraph::new("<ESC> to quit")
@@ -257,15 +259,17 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                                     }
                                 },
                                 event::KeyCode::Down => {
-                                    let item_count = app.world.resource::<Inventory>().items.len();
-                                    let mut camera_data = app.world.resource_mut::<CameraData>();
-                                    if let Some(current_value) = camera_data.selection.selected() {
-                                        let new_value = current_value + 1;
-                                        if new_value < item_count {
-                                            camera_data.selection.select(Some(new_value));
+                                    if let Ok(inventory) = app.world.query_filtered::<&Inventory, With<PlayerTag>>().get_single(&app.world) {
+                                        let item_count = inventory.items.len();
+                                        let mut camera_data = app.world.resource_mut::<CameraData>();
+                                        if let Some(current_value) = camera_data.selection.selected() {
+                                            let new_value = current_value + 1;
+                                            if new_value < item_count {
+                                                camera_data.selection.select(Some(new_value));
+                                            }
+                                        } else {
+                                            camera_data.selection.select(Some(0));
                                         }
-                                    } else {
-                                        camera_data.selection.select(Some(0));
                                     }
                                 },
                                 event::KeyCode::Enter => {

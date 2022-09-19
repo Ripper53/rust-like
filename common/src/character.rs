@@ -2,7 +2,7 @@ use std::collections::VecDeque;
 
 use bevy::prelude::*;
 use crossterm::style::Stylize;
-use crate::{physics::*, dialogue::{Dialogue, DialogueOption}, inventory::Equipment};
+use crate::{physics::*, dialogue::{Dialogue, DialogueOption}, inventory::{Equipment, Inventory}};
 
 #[derive(Component)]
 pub struct PlayerTag;
@@ -57,6 +57,7 @@ pub struct CharacterBundle {
     pub health: Health,
     pub data: CharacterType,
     pub action_history: ActionHistory,
+    pub inventory: Inventory,
     pub equipment: Equipment,
 }
 

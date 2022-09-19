@@ -61,7 +61,7 @@ impl PartialEq for &Box<Item> {
     }
 }
 
-#[derive(Default)]
+#[derive(Component, Default)]
 pub struct Inventory {
     pub items: Vec<Box<Item>>,
 }
@@ -83,11 +83,10 @@ pub struct Equipment {
 }
 
 pub fn inventory_update(
-    mut inventory: ResMut<Inventory>,
     mut action_input: ResMut<ActionInput>,
-    mut query: Query<(&mut Health, &mut Equipment), With<PlayerTag>>,
+    mut query: Query<(&mut Inventory, &mut Health, &mut Equipment), With<PlayerTag>>,
 ) {
-    for (mut health, mut equipment) in query.iter_mut() {
+    for (mut inventory, mut health, mut equipment) in query.iter_mut() {
         match *action_input {
             ActionInput::None => { /* Take no action! */},
             ActionInput::SelectFromInventory(index) => {

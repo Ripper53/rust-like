@@ -53,14 +53,6 @@ fn main() {
         .init_resource::<PlayerInput>()
         .insert_resource(ActionInput::None)
         .insert_resource(Dialogue::default())
-        .insert_resource(Inventory { items: vec![
-            Box::new(Item::new_apple()),
-            Box::new(Item::new_apple()),
-            Box::new(Item::new_banana()),
-            Box::new(Item::new_apple()),
-            Box::new(Item::new_banana()),
-            Box::new(Item::new_apple()),
-        ] })
         .init_resource::<Map>()
         .add_startup_system(setup)
 
