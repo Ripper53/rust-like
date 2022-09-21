@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use client::render::*;
-use common::{physics::*, character::*, dialogue::Dialogue, inventory::{Inventory, Item, inventory_update}, util::{spawn_lerain, spawn_werewolf}, ActionInput, Scene};
+use common::{physics::*, character::*, dialogue::Dialogue, inventory::inventory_update, util::{spawn_lerain, spawn_werewolf}, ActionInput, Scene};
 use iyes_loopless::condition::IntoConditionalExclusiveSystem;
 
 fn setup(mut commands: Commands, mut map: ResMut<Map>) {
@@ -42,7 +42,8 @@ fn main() {
     const PLAYER_INPUT_LABEL: &str = "player_movement_input_update";
     const PLAYER_MOVEMENT_LABEL: &str = "player_movement_update";
     const BRAIN_UPDATE_LABEL: &str = "brain_update";
-    const NPC_MOVEMENT_UPDATE: &str = "npc_movement_update";
+    const NPC_MOVEMENT_UPDATE_LABEL: &str = "npc_movement_update";
+    const INTERACT_UPDATE_LABEL: &str = "interact_update";
 
     const INVENTORY_LABEL: &str = "inventory_update";
 
@@ -82,8 +83,14 @@ fn main() {
             .with_system(
                 npc_movement_update
                     .run_if_not(in_conversation_condition)
-                    .label(NPC_MOVEMENT_UPDATE)
+                    .label(NPC_MOVEMENT_UPDATE_LABEL)
                     .after(BRAIN_UPDATE_LABEL)
+            )
+            .with_system(
+                interact_update
+                    .run_if_not(in_conversation_condition)
+                    .label(INTERACT_UPDATE_LABEL)
+                    .after(NPC_MOVEMENT_UPDATE_LABEL)
             )
         )
 

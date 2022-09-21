@@ -99,10 +99,10 @@ pub fn spawn_projectile(
         |mut entity_commands| {
             entity_commands
                 .insert(MovementInput::Idle)
-                .insert(Interact::Projectile {
+                .insert(Interact::new(crate::character::InteractData::Projectile {
                     recent_spawn: true,
                     damage,
-                })
+                }))
                 .insert(CollisionType::Projectile);
         },
     );

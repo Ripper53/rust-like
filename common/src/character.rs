@@ -44,6 +44,12 @@ impl Health {
             self.value = self.max;
         }
     }
+    pub fn damage(&mut self, value: i32) {
+        self.value -= value;
+        if self.value < 0 {
+            self.value = 0;
+        }
+    }
 }
 
 #[derive(Bundle)]
@@ -116,10 +122,10 @@ impl From<&CharacterType> for Interact {
     fn from(value: &CharacterType) -> Self {
         // Get defaults
         match value {
-            CharacterType::Player => Interact::Player,
-            CharacterType::Lerain => Interact::Lerain,
-            CharacterType::Rumdare => Interact::Rumdare,
-            CharacterType::Werewolf => Interact::Werewolf,
+            CharacterType::Player => Interact::new(InteractData::Player),
+            CharacterType::Lerain => Interact::new(InteractData::Lerain),
+            CharacterType::Rumdare => Interact::new(InteractData::Rumdare),
+            CharacterType::Werewolf => Interact::new(InteractData::Werewolf),
         }
     }
 }
@@ -160,7 +166,17 @@ impl MovementInput {
 }
 
 #[derive(Component)]
-pub enum Interact {
+pub struct Interact {
+    pub info: Option<InteractInfo>,
+    pub data: InteractData,
+}
+pub struct InteractInfo {
+    pub entity: Entity,
+    pub position: Position,
+    pub other_entity: Entity,
+    pub other_position: Position,
+}
+pub enum InteractData {
     Player,
     Lerain,
     Rumdare,
@@ -171,15 +187,10 @@ pub enum Interact {
     },
 }
 impl Interact {
-    fn interact(&mut self, dialogue: &mut Dialogue, character_type: &CharacterType) {
-        match self {
-            Interact::Player => {
-                dialogue.activate("Bruh".to_string(), vec![("Option 1".to_string(), DialogueOption::Leave)]);
-            },
-            Interact::Lerain | Interact::Rumdare | Interact::Werewolf => {},
-            Interact::Projectile { damage, .. } => {
-                // Collision!
-            },
+    pub fn new(data: InteractData) -> Self {
+        Interact {
+            info: None,
+            data,
         }
     }
 }
@@ -240,9 +251,7 @@ pub fn check_collision_and_move_or_interact(
     current_position: &mut Position,
     new_position: &Position,
     sprite: Option<&Sprite>,
-    dialogue: &mut Dialogue,
     interact: &mut Interact,
-    interact_query: &Query<&CharacterType>,
 ) -> bool {
     let result = check_collision_and_move(map, entity, collision_type, current_position, new_position, sprite);
     if let CollisionCheckResult::IsOccupied(position) = result {
@@ -251,9 +260,12 @@ pub fn check_collision_and_move_or_interact(
             Tile::Obstacle { occupier }
         ) = map.get_mut(position.x as usize, position.y as usize) {
             if let Some(occupier) = occupier {
-                if let Ok(character_data) = interact_query.get(occupier.entity) {
-                    interact.interact(dialogue, character_data);
-                }
+                interact.info = Some(InteractInfo {
+                    entity,
+                    other_entity: occupier.entity,
+                    position: *current_position,
+                    other_position: position,
+                });
             }
         }
         false
@@ -269,22 +281,18 @@ fn move_update(
     input: &MovementInput,
     position: &mut Position,
     sprite: Option<&Sprite>,
-    dialogue: &mut Dialogue,
     interact: &mut Interact,
-    interact_query: &Query<&CharacterType>,
     action_history: Option<&mut ActionHistory>,
 ) {
     if let Ok(movement) = input.to_position() {
         if check_collision_and_move_or_interact(
-            &mut map,
+            map,
             entity,
             collision_type,
             position,
             &(*position + movement),
             sprite,
-            dialogue,
             interact,
-            interact_query,
         ) {
             if let Some(action_history) = action_history {
                 action_history.add(*input);
@@ -294,23 +302,28 @@ fn move_update(
 }
 pub fn player_movement_update(
     mut map: ResMut<Map>,
-    mut dialogue: ResMut<Dialogue>,
     mut player_query: Query<(Entity, &MovementInput, &mut Position, Option<&Sprite>, &CollisionType, &mut Interact, Option<&mut ActionHistory>), With<PlayerTag>>,
-    interact_query: Query<&CharacterType>,
 ) {
     for (entity, input, mut position, sprite, collision_type, mut interact, mut action_history) in player_query.iter_mut() {
-        move_update(&mut map, entity, collision_type, input, &mut position, sprite, &mut dialogue, &mut interact, &interact_query, action_history.as_deref_mut());
+        move_update(
+            &mut map,
+            entity,
+            collision_type,
+            input,
+            &mut position,
+            sprite,
+            &mut interact,
+            action_history.as_deref_mut(),
+        );
     }
 }
 pub fn npc_movement_update(
     mut map: ResMut<Map>,
-    mut dialogue: ResMut<Dialogue>,
     mut npc_query: Query<(Entity, &mut MovementInput, &mut Position, Option<&Sprite>, &CollisionType, &mut Interact, Option<&mut ActionHistory>, Option<&Velocity>), Without<PlayerTag>>,
-    interact_query: Query<&CharacterType>,
 ) {
     for (entity, mut movement_input, mut position, sprite, collision_type, mut interact, mut action_history, velocity) in npc_query.iter_mut() {
         let times = if let Some(velocity) = velocity {
-            if let Interact::Projectile { recent_spawn, .. } = interact.as_mut() {
+            if let InteractData::Projectile { ref mut recent_spawn, .. } = interact.data {
                 if *recent_spawn {
                     *recent_spawn = false;
                     1
@@ -326,12 +339,49 @@ pub fn npc_movement_update(
             1
         };
         for _ in 0..times {
-            move_update(&mut map, entity, collision_type, &movement_input, &mut position, sprite, &mut dialogue, &mut interact, &interact_query, action_history.as_deref_mut());
+            move_update(
+                &mut map,
+                entity,
+                collision_type,
+                &movement_input,
+                &mut position,
+                sprite,
+                &mut interact,
+                action_history.as_deref_mut(),
+            );
         }
     }
 }
 pub fn player_movement_input_update(player_input: Res<PlayerInput>, mut query: Query<&mut MovementInput, With<PlayerTag>>) {
     for mut movement_input in query.iter_mut() {
         *movement_input = player_input.input_movement;
+    }
+}
+
+pub fn interact_update(
+    mut query: Query<&mut Interact>,
+    mut commands: Commands,
+    mut map: ResMut<Map>,
+    mut dialogue: ResMut<Dialogue>,
+
+    mut health_query: Query<&mut Health>,
+) {
+    for mut interact in query.iter_mut() {
+        if let Some(info) = &interact.info {
+            match interact.data {
+                InteractData::Player => {
+                    dialogue.activate("Bruh".to_string(), vec![("Option 1".to_string(), DialogueOption::Leave)]);
+                },
+                InteractData::Lerain | InteractData::Rumdare | InteractData::Werewolf => {},
+                InteractData::Projectile { damage, .. } => {
+                    // Collision!
+                    map.destroy(info.position.x as usize, info.position.y as usize, &mut commands);
+                    if let Ok(mut health) = health_query.get_mut(info.other_entity) {
+                        health.damage(damage);
+                    }
+                },
+            }
+            interact.info = None;
+        }
     }
 }

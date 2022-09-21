@@ -173,6 +173,16 @@ impl Map {
             }
         }
     }
+    pub fn destroy(&mut self, x: usize, y: usize, commands: &mut Commands) {
+        if let Some(tile) = self.get_mut(x, y) {
+            if let Tile::Ground { occupier, .. } | Tile::Obstacle { occupier } = tile {
+                if let Some(o) = occupier {
+                    commands.entity(o.entity).despawn();
+                    *occupier = None;
+                }
+            }
+        }
+    }
     pub fn get(&self, x: usize, y: usize) -> Option<&Tile> {
         if x < self.size_x && y < self.size_y {
             self.values.get(x + (self.size_x * y))
