@@ -123,6 +123,7 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                     Constraint::Length(3),
                     Constraint::Min(3),
                     Constraint::Length(if dialogue.in_conversation { 6 } else { 0 }),
+                    Constraint::Length(if dialogue.in_conversation { 6 } else { 0 }),
                 ])
                 .split(top_layout[0]);
 
@@ -132,8 +133,19 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                     let dialogue = app.world.resource::<Dialogue>();
                     if dialogue.in_conversation {
                         let p = Paragraph::new(dialogue.text.to_string())
-                            .block(Block::default().borders(Borders::ALL).title("Dialogue"));
+                            .block(Block::default().borders(Borders::TOP | Borders::RIGHT | Borders::LEFT).title("Dialogue"));
                         rect.render_widget(p, main_layout[2]);
+
+                        let mut options_items = Vec::<ListItem>::with_capacity(dialogue.options.len());
+                        for (text, _) in &dialogue.options {
+                            options_items.push(ListItem::new(Text::raw(text)));
+                        }
+                        let options = List::new(options_items)
+                            .block(Block::default().borders(Borders::ALL).title("Options"))
+                            .highlight_symbol(">");
+                        let mut active = ListState::default();
+                        active.select(Some(dialogue.active));
+                        rect.render_stateful_widget(options, main_layout[3], &mut active);
                     }
                     let map = app.world.resource::<Map>();
                     let camera = app.world.resource::<CameraData>();

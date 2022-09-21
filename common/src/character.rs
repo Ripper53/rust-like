@@ -358,6 +358,8 @@ pub fn player_movement_input_update(player_input: Res<PlayerInput>, mut query: Q
     }
 }
 
+#[derive(Component)]
+pub struct LootableTag;
 pub fn interact_update(
     mut query: Query<&mut Interact>,
     mut commands: Commands,
@@ -366,13 +368,21 @@ pub fn interact_update(
 
     character_type_query: Query<&CharacterType>,
     mut health_query: Query<&mut Health>,
+    mut lootable_query: Query<&mut Inventory, With<LootableTag>>,
 ) {
     for mut interact in query.iter_mut() {
         if let Some(info) = &interact.info {
             match interact.data {
                 InteractData::Player => {
                     if let Ok(_character_type) = character_type_query.get(info.other_entity) {
-                        dialogue.activate("Bruh".to_string(), vec![("Option 1".to_string(), DialogueOption::Leave)]);
+                        dialogue.activate("Bruh".to_string(), vec![
+                            ("Option 1".to_string(), DialogueOption::Leave),
+                            ("Option 2".to_string(), DialogueOption::Leave),
+                            ("Option 3".to_string(), DialogueOption::Leave),
+                        ]);
+                    }
+                    if let Ok(_lootable_inventory) = lootable_query.get(info.other_entity) {
+                        dialogue.activate("LOOTABLE INVENTORY".to_string(), vec![("Option 1".to_string(), DialogueOption::Leave)]);
                     }
                 },
                 InteractData::Lerain | InteractData::Rumdare | InteractData::Werewolf => {},
