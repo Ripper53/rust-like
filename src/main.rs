@@ -43,7 +43,9 @@ fn main() {
     const PLAYER_MOVEMENT_LABEL: &str = "player_movement_update";
     const BRAIN_UPDATE_LABEL: &str = "brain_update";
     const NPC_MOVEMENT_UPDATE_LABEL: &str = "npc_movement_update";
+    const COLLISION_UPDATE_LABEL: &str = "collision_update";
     const INTERACT_UPDATE_LABEL: &str = "interact_update";
+    const DESTORY_CHECK_LABEL: &str = "destroy_check";
 
     const INVENTORY_LABEL: &str = "inventory_update";
 
@@ -87,10 +89,22 @@ fn main() {
                     .after(BRAIN_UPDATE_LABEL)
             )
             .with_system(
+                collision_update
+                    .run_if_not(in_conversation_condition)
+                    .label(COLLISION_UPDATE_LABEL)
+                    .after(NPC_MOVEMENT_UPDATE_LABEL),
+            )
+            .with_system(
                 interact_update
                     .run_if_not(in_conversation_condition)
                     .label(INTERACT_UPDATE_LABEL)
-                    .after(NPC_MOVEMENT_UPDATE_LABEL)
+                    .after(COLLISION_UPDATE_LABEL)
+            )
+            .with_system(
+                destroy_check_update
+                    .run_if_not(in_conversation_condition)
+                    .label(DESTORY_CHECK_LABEL)
+                    .after(INTERACT_UPDATE_LABEL)
             )
         )
 

@@ -42,17 +42,31 @@ pub enum Tile {
 pub struct Occupier {
     pub entity: Entity,
     pub sprite: crate::character::Sprite,
+    pub collision_type: CollisionType,
 }
 impl Occupier {
-    pub fn new(entity: Entity, sprite: crate::character::Sprite) ->  Self {
-        Occupier { entity, sprite }
+    pub fn new(entity: Entity, sprite: crate::character::Sprite, collision_type: CollisionType) ->  Self {
+        Occupier { entity, sprite, collision_type }
     }
 }
 
 #[derive(Component)]
+pub struct Collision {
+    pub collided: bool,
+    pub collision_type: CollisionType,
+}
+impl Collision {
+    pub fn new(collision_type: CollisionType) -> Self {
+        Collision {
+            collided: false,
+            collision_type,
+        }
+    }
+}
+#[derive(Clone)]
 pub enum CollisionType {
-    Default,
-    Projectile,
+    Solid,
+    Sensor,
 }
 impl Tile {
     pub fn new_ground(zone: Zone) -> Self {
@@ -61,11 +75,14 @@ impl Tile {
     pub fn default_ground() -> Self {
         Self::new_ground(Zone::Road)
     }
-    pub fn is_occupied(&self, collision_type: &CollisionType) -> bool {
+    pub fn is_occupied(&self, collision: &mut Collision) -> bool {
         match self {
             Tile::Ground { occupier, .. } => occupier.is_some(),
-            Tile::Wall => true,
-            Tile::Obstacle { occupier } => !matches!(collision_type, CollisionType::Projectile) || occupier.is_some(),
+            Tile::Wall => {
+                collision.collided = true;
+                true
+            },
+            Tile::Obstacle { occupier } => !matches!(collision.collision_type, CollisionType::Sensor) || occupier.is_some(),
         }
     }
 }
@@ -117,12 +134,13 @@ impl Map {
         sprite: crate::character::Sprite,
         position: Position,
         velocity: Velocity,
+        collision_type: CollisionType,
         spawned_callback: F,
     ) {
         if let Some(tile) = self.get_mut(position.x as usize, position.y as usize) {
             if let Tile::Ground { occupier, .. } | Tile::Obstacle { occupier } = tile {
                 let mut entity = commands.spawn();
-                *occupier = Some(Occupier::new(entity.id(), sprite));
+                *occupier = Some(Occupier::new(entity.id(), sprite, collision_type));
                 entity
                     .insert(sprite)
                     .insert(position)
@@ -146,7 +164,7 @@ impl Map {
                 ..
              } = tile {
                 let mut entity = commands.spawn();
-                *occupier_option = Some(Occupier::new(entity.id(), sprite));
+                *occupier_option = Some(Occupier::new(entity.id(), sprite, CollisionType::Solid));
                 entity.insert_bundle(CharacterBundle {
                     input_data: crate::character::MovementInput::Idle,
                     sprite,
@@ -167,7 +185,7 @@ impl Map {
                         ],
                     },
                     equipment: Equipment::default(),
-                    collision_type: CollisionType::Default,
+                    collision: Collision::new(CollisionType::Solid),
                 });
                 spawned_callback(entity);
             }

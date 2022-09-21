@@ -1,7 +1,7 @@
 use std::{time::{Duration, Instant}, thread, sync::mpsc::Receiver};
 
 use bevy::prelude::{App, ResMut, Query, With, CoreStage, State};
-use common::{physics::*, character::{PlayerInput, MovementInput, PlayerTag, ActionHistory}, dialogue::Dialogue, inventory::{Inventory, Equipment}, ActionInput, Scene};
+use common::{physics::*, character::{PlayerInput, MovementInput, PlayerTag, ActionHistory, Health}, dialogue::Dialogue, inventory::{Inventory, Equipment}, ActionInput, Scene};
 use crossterm::{
     terminal::enable_raw_mode, event, execute,
 };
@@ -110,6 +110,13 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                     Constraint::Percentage(20),
                 ])
                 .split(rect.size());
+            let info_layout = Layout::default()
+                .direction(tui::layout::Direction::Vertical)
+                .constraints([
+                    Constraint::Percentage(50),
+                    Constraint::Percentage(50),
+                ])
+                .split(top_layout[1]);
             let main_layout = Layout::default()
                 .direction(tui::layout::Direction::Vertical)
                 .constraints([
@@ -187,7 +194,19 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
             }
             let info = Paragraph::new(info_text)
                 .block(Block::default().borders(Borders::ALL).title("Info"));
-            rect.render_widget(info, top_layout[1]);
+            rect.render_widget(info, info_layout[0]);
+
+            if let Ok((health, equipment)) = app.world.query_filtered::<(&Health, &Equipment), With<PlayerTag>>().get_single(&app.world) {
+                let equipped_text = if let Some(equipped) = &equipment.equipped {
+                    format!("Equipped: {}", equipped.get_name())
+                } else {
+                    "Equipped: None".to_string()
+                };
+                let health_text = format!("Health: {}/{}", health.value, health.max);
+                let stats_info = Paragraph::new(format!("{health_text}\n{equipped_text}"))
+                    .block(Block::default().borders(Borders::ALL).title("Stats"));
+                rect.render_widget(stats_info, info_layout[1]);
+            }
         })?;
 
         match rx.recv()? {

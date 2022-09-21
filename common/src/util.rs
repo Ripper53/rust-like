@@ -4,6 +4,7 @@ use crate::{
         Map,
         Position,
         Velocity,
+        Collision,
         CollisionType,
     },
     character::{
@@ -96,6 +97,7 @@ pub fn spawn_projectile(
         sprite,
         position,
         velocity,
+        CollisionType::Sensor,
         |mut entity_commands| {
             entity_commands
                 .insert(MovementInput::Idle)
@@ -103,7 +105,7 @@ pub fn spawn_projectile(
                     recent_spawn: true,
                     damage,
                 }))
-                .insert(CollisionType::Projectile);
+                .insert(Collision::new(CollisionType::Sensor));
         },
     );
 }

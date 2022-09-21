@@ -28,8 +28,8 @@ impl Sprite {
 
 #[derive(Component)]
 pub struct Health {
-    value: i32,
-    max: i32,
+    pub value: i32,
+    pub max: i32,
 }
 impl Health {
     pub fn new(value: i32) -> Health {
@@ -63,7 +63,7 @@ pub struct CharacterBundle {
     pub action_history: ActionHistory,
     pub inventory: Inventory,
     pub equipment: Equipment,
-    pub collision_type: CollisionType,
+    pub collision: Collision,
 }
 
 #[derive(Component)]
@@ -204,7 +204,7 @@ pub enum CollisionCheckResult {
 fn check_collision_and_move(
     map: &mut Map,
     entity: Entity,
-    collision_type: &CollisionType,
+    collision: &mut Collision,
     current_position: &mut Position,
     new_position: &Position,
     sprite: Option<&Sprite>,
@@ -212,13 +212,13 @@ fn check_collision_and_move(
     let old_position = current_position.clone();
     let mut place_character_at_new_position = || {
         if let Some(tile) = new_position.get_mut_from_map(map) {
-            if tile.is_occupied(collision_type) {
+            if tile.is_occupied(collision) {
                 CollisionCheckResult::IsOccupied(new_position.clone())
             } else if let Tile::Ground { occupier, .. } | Tile::Obstacle { occupier } = tile {
                 *occupier = if let Some(s) = sprite {
-                    Some(Occupier::new(entity, *s))
+                    Some(Occupier::new(entity, *s, collision.collision_type.clone()))
                 } else {
-                    Some(Occupier::new(entity, Sprite::new('?')))
+                    Some(Occupier::new(entity, Sprite::new('?'), collision.collision_type.clone()))
                 };
                 *current_position = new_position.clone();
                 CollisionCheckResult::NoCollision
@@ -247,13 +247,13 @@ fn check_collision_and_move(
 pub fn check_collision_and_move_or_interact(
     map: &mut Map,
     entity: Entity,
-    collision_type: &CollisionType,
+    collision: &mut Collision,
     current_position: &mut Position,
     new_position: &Position,
     sprite: Option<&Sprite>,
     interact: &mut Interact,
 ) -> bool {
-    let result = check_collision_and_move(map, entity, collision_type, current_position, new_position, sprite);
+    let result = check_collision_and_move(map, entity, collision, current_position, new_position, sprite);
     if let CollisionCheckResult::IsOccupied(position) = result {
         if let Some(
             Tile::Ground { occupier, .. } |
@@ -275,9 +275,9 @@ pub fn check_collision_and_move_or_interact(
 }
 
 fn move_update(
-    mut map: &mut Map,
+    map: &mut Map,
     entity: Entity,
-    collision_type: &CollisionType,
+    collision: &mut Collision,
     input: &MovementInput,
     position: &mut Position,
     sprite: Option<&Sprite>,
@@ -288,7 +288,7 @@ fn move_update(
         if check_collision_and_move_or_interact(
             map,
             entity,
-            collision_type,
+            collision,
             position,
             &(*position + movement),
             sprite,
@@ -302,13 +302,13 @@ fn move_update(
 }
 pub fn player_movement_update(
     mut map: ResMut<Map>,
-    mut player_query: Query<(Entity, &MovementInput, &mut Position, Option<&Sprite>, &CollisionType, &mut Interact, Option<&mut ActionHistory>), With<PlayerTag>>,
+    mut player_query: Query<(Entity, &MovementInput, &mut Position, Option<&Sprite>, &mut Collision, &mut Interact, Option<&mut ActionHistory>), With<PlayerTag>>,
 ) {
-    for (entity, input, mut position, sprite, collision_type, mut interact, mut action_history) in player_query.iter_mut() {
+    for (entity, input, mut position, sprite, mut collision, mut interact, mut action_history) in player_query.iter_mut() {
         move_update(
             &mut map,
             entity,
-            collision_type,
+            &mut collision,
             input,
             &mut position,
             sprite,
@@ -319,9 +319,9 @@ pub fn player_movement_update(
 }
 pub fn npc_movement_update(
     mut map: ResMut<Map>,
-    mut npc_query: Query<(Entity, &mut MovementInput, &mut Position, Option<&Sprite>, &CollisionType, &mut Interact, Option<&mut ActionHistory>, Option<&Velocity>), Without<PlayerTag>>,
+    mut npc_query: Query<(Entity, &mut MovementInput, &mut Position, Option<&Sprite>, &mut Collision, &mut Interact, Option<&mut ActionHistory>, Option<&Velocity>), Without<PlayerTag>>,
 ) {
-    for (entity, mut movement_input, mut position, sprite, collision_type, mut interact, mut action_history, velocity) in npc_query.iter_mut() {
+    for (entity, mut movement_input, mut position, sprite, mut collision, mut interact, mut action_history, velocity) in npc_query.iter_mut() {
         let times = if let Some(velocity) = velocity {
             if let InteractData::Projectile { ref mut recent_spawn, .. } = interact.data {
                 if *recent_spawn {
@@ -342,7 +342,7 @@ pub fn npc_movement_update(
             move_update(
                 &mut map,
                 entity,
-                collision_type,
+                &mut collision,
                 &movement_input,
                 &mut position,
                 sprite,
@@ -364,13 +364,16 @@ pub fn interact_update(
     mut map: ResMut<Map>,
     mut dialogue: ResMut<Dialogue>,
 
+    character_type_query: Query<&CharacterType>,
     mut health_query: Query<&mut Health>,
 ) {
     for mut interact in query.iter_mut() {
         if let Some(info) = &interact.info {
             match interact.data {
                 InteractData::Player => {
-                    dialogue.activate("Bruh".to_string(), vec![("Option 1".to_string(), DialogueOption::Leave)]);
+                    if let Ok(_character_type) = character_type_query.get(info.other_entity) {
+                        dialogue.activate("Bruh".to_string(), vec![("Option 1".to_string(), DialogueOption::Leave)]);
+                    }
                 },
                 InteractData::Lerain | InteractData::Rumdare | InteractData::Werewolf => {},
                 InteractData::Projectile { damage, .. } => {
@@ -382,6 +385,32 @@ pub fn interact_update(
                 },
             }
             interact.info = None;
+        }
+    }
+}
+
+pub fn collision_update(
+    mut query: Query<(&mut Collision, &Position)>,
+    mut commands: Commands,
+    mut map: ResMut<Map>,
+) {
+    for (mut collision, position) in query.iter_mut() {
+        if collision.collided {
+            collision.collided = false;
+            match collision.collision_type {
+                CollisionType::Sensor => {
+                    map.destroy(position.x as usize, position.y as usize, &mut commands);
+                },
+                _ => {},
+            }
+        }
+    }
+}
+
+pub fn destroy_check_update(mut commands: Commands, mut map: ResMut<Map>, query: Query<(&Position, &Health)>) {
+    for (position, health) in query.iter() {
+        if health.value == 0 {
+            map.destroy(position.x as usize, position.y as usize, &mut commands);
         }
     }
 }
