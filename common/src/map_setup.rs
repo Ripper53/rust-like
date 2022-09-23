@@ -173,6 +173,12 @@ pub fn town(map: &mut Map) {
         }
     }
 
-    home(map, Position::new(29, 49), Position::new(29 + 10, 49 + 10), Zone::Home);
-    home(map, Position::new(29, 29), Position::new(29 + 10, 29 + 10), Zone::Home);
+    let position = Position::new(29, 49);
+    home(map, position, position + Position::new(10, 10), Zone::Home);
+    let position = Position::new(29, 29);
+    home(map, position, position + Position::new(10, 6), Zone::Home);
+    let position = Position::new(49, 49);
+    home(map, position, position + Position::new(10, 10), Zone::Home);
+    let position = Position::new(200, 60);
+    home(map, position, position + Position::new(10, 8), Zone::Home);
 }

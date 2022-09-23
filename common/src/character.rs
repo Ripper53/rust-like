@@ -59,7 +59,8 @@ pub struct CharacterBundle {
     pub position: Position,
     pub interact: Interact,
     pub health: Health,
-    pub data: CharacterType,
+    pub character_type: CharacterType,
+    pub character_data: CharacterData,
     pub action_history: ActionHistory,
     pub inventory: Inventory,
     pub equipment: Equipment,
@@ -104,6 +105,17 @@ pub enum CharacterType {
     Lerain,
     Rumdare,
     Werewolf,
+}
+pub enum WereForm {
+    Human,
+    Beast,
+}
+#[derive(Component)]
+pub enum CharacterData {
+    Human,
+    Werewolf {
+        form: WereForm,
+    },
 }
 impl PartialEq for CharacterType {
     fn eq(&self, other: &Self) -> bool {

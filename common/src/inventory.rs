@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{character::{PlayerTag, Health, Sprite, MovementInput, ActionHistory}, ActionInput, physics::{Map, Position, Velocity}, util::spawn_projectile};
+use crate::{character::{PlayerTag, Health, Sprite, ActionHistory}, ActionInput, physics::{Map, Position, Velocity}, util::spawn_projectile};
 
 #[derive(Clone)]
 pub enum Item {

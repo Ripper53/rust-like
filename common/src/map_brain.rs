@@ -1,8 +1,8 @@
 use std::cmp::Ordering;
 
-use bevy::prelude::*;
+use bevy::prelude::{Component, Query, Res};
 use rand::prelude::*;
-use crate::{physics::*, character::{MovementInput, CharacterType}};
+use crate::{physics::*, character::{MovementInput, CharacterType, CharacterData, WereForm, Sprite}};
 use pathfinding::prelude::astar;
 
 #[derive(Component)]
@@ -81,6 +81,7 @@ pub enum Behavior {
         pathfinder: Pathfinder,
         skip_turn: SkipTurn,
     },
+    Werewolf,
 }
 impl Behavior {
     pub fn skip_movement(skip_at: u32) -> BehaviorData {
@@ -89,23 +90,30 @@ impl Behavior {
     pub fn default_slow_movement() -> BehaviorData {
         Self::skip_movement(1)
     }
+    pub fn default_werewolf() -> BehaviorData {
+        BehaviorData::new(Behavior::Werewolf)
+    }
 }
 
 impl Behavior {
-    fn get_pathfinder_target(map: &Map, search_query: &Query<(&CharacterType, &Position)>, character_data: &CharacterType, pathfinder: &mut Pathfinder, position: &Position) {
-        let get_target = |pathfinder: &mut Pathfinder, target_character_data: CharacterType| {
+    fn get_pathfinder_target(map: &Map, search_query: &Query<(&CharacterType, &CharacterData, &Position)>, character_type: &CharacterType, pathfinder: &mut Pathfinder, position: &Position) {
+        let get_target = |pathfinder: &mut Pathfinder, target_character_type: CharacterType| {
             let mut found_target = false;
-            if let Some((_, target)) = search_query.iter().min_by(|(data_a, pos_a), (data_b, pos_b)| {
-                if **data_a == target_character_data {
-                    found_target = true;
-                    if **data_b == target_character_data {
+            if let Some((_, target_data, target)) = search_query.iter().min_by(|(type_a, data_a, pos_a), (type_b, data_b, pos_b)| {
+                if **type_a == target_character_type {
+                    found_target = if let CharacterData::Werewolf { form } = data_a {
+                        matches!(form, WereForm::Beast)
+                    } else {
+                        true
+                    };
+                    if **type_b == target_character_type {
                         let diff_a = position.distance(pos_a);
                         let diff_b = position.distance(pos_b);
                         diff_a.cmp(&diff_b)
                     } else {
                         Ordering::Less
                     }
-                } else if **data_b == target_character_data {
+                } else if **type_b == target_character_type {
                     found_target = true;
                     Ordering::Greater
                 } else {
@@ -128,7 +136,7 @@ impl Behavior {
             let y = rand::thread_rng().gen_range(0..map.get_size_y() as i32);
             pathfinder.current_goal = Position::new(x, y);
         };
-        match character_data {
+        match character_type {
             CharacterType::Player => {},
             CharacterType::Lerain => {
                 if !get_target(pathfinder, CharacterType::Werewolf) && pathfinder.current_goal == *position {
@@ -155,7 +163,8 @@ impl Behavior {
     fn execute(
         &mut self,
         map: &Map,
-        character_data: &CharacterType,
+        character_type: &CharacterType,
+        character_data: &mut CharacterData,
         movement_input: &mut MovementInput,
         position: &Position,
 
@@ -164,13 +173,22 @@ impl Behavior {
     ) {
         match self {
             Behavior::SlowMovement { pathfinder, skip_turn } => {
-                Self::get_pathfinder_target(map, pathfinder_search_query, character_data, pathfinder, position);
+                Self::get_pathfinder_target(map, pathfinder_search_query, character_type, pathfinder, position);
                 if skip_turn.skip_at != 0 && skip_turn.count == skip_turn.skip_at {
                     skip_turn.count = 0;
                     *movement_input = MovementInput::Idle;
                 } else {
                     skip_turn.count += 1;
                     pathfinder.execute(collision_query, map, movement_input, position);
+                }
+            },
+            Behavior::Werewolf => {
+                if let CharacterData::Werewolf { form } = character_data {
+                    if rand::thread_rng().gen_range(0..10 as i32) < 2 {
+                        *form = WereForm::Beast;
+                    } else {
+                        *form = WereForm::Human;
+                    }
                 }
             },
         }
@@ -218,19 +236,19 @@ impl Position {
 }
 
 pub fn brain_update(
-    mut query: Query<(&mut Brain, &mut MovementInput, &CharacterType, &Position)>,
+    mut query: Query<(&mut Brain, &mut MovementInput, &CharacterType, &mut CharacterData, &Position)>,
     map: Res<Map>,
 
     mut collision_query: Query<&mut Collision>,
     pathfinder_search_query: Query<(&CharacterType, &Position)>,
 ) {
-    for (mut brain, mut movement_input, character_data, position) in query.iter_mut() {
+    for (mut brain, mut movement_input, character_type, mut character_data, position) in query.iter_mut() {
         for behavior in brain.behaviors.iter_mut() {
             if behavior.conditions.len() != 0 {
                 for condition in behavior.conditions.iter() {
                     if condition() {
                         behavior.behavior.execute(
-                            &map, character_data, &mut movement_input, position,
+                            &map, character_type, &mut character_data, &mut movement_input, position,
                             &mut collision_query, &pathfinder_search_query,
                         );
                         break;
@@ -238,9 +256,20 @@ pub fn brain_update(
                 }
             } else {
                 behavior.behavior.execute(
-                    &map, character_data, &mut movement_input, position,
+                    &map, character_type, &mut character_data, &mut movement_input, position,
                     &mut collision_query, &pathfinder_search_query,
                 );
+            }
+        }
+    }
+}
+
+pub fn werewolf_update(mut query: Query<(&CharacterData, &mut Sprite)>) {
+    for (character_data, mut sprite) in query.iter_mut() {
+        if let CharacterData::Werewolf { form } = character_data {
+            match form {
+                WereForm::Human => *sprite = Sprite::new('C'),
+                WereForm::Beast => *sprite = Sprite::new('W'),
             }
         }
     }

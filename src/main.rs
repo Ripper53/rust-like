@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use client::render::*;
-use common::{physics::*, character::*, dialogue::Dialogue, inventory::inventory_update, util::{spawn_lerain, spawn_werewolf}, ActionInput, Scene};
+use common::{physics::*, character::*, dialogue::Dialogue, inventory::inventory_update, util::{spawn_lerain, spawn_werewolf}, ActionInput, Scene, map_brain::werewolf_update};
 use iyes_loopless::condition::IntoConditionalExclusiveSystem;
 
 fn setup(mut commands: Commands, mut map: ResMut<Map>) {
@@ -10,6 +10,7 @@ fn setup(mut commands: Commands, mut map: ResMut<Map>) {
         Position::new(50, 2),
         Health::new(1),
         CharacterType::Player,
+        CharacterData::Human,
         |mut entity_commands| {
             entity_commands.insert(PlayerTag);
         },
@@ -18,7 +19,7 @@ fn setup(mut commands: Commands, mut map: ResMut<Map>) {
     spawn_lerain(&mut commands, &mut map, Position::new(20, 40));
     spawn_lerain(&mut commands, &mut map, Position::new(30, 10));
     spawn_lerain(&mut commands, &mut map, Position::new(25, 20));
-    //spawn_werewolf(&mut commands, &mut map, Position::new(2, 4));
+    spawn_werewolf(&mut commands, &mut map, Position::new(2, 4));
     /*map.spawn_character(
         &mut commands,
         common::character::Sprite::new('L'),
@@ -45,6 +46,7 @@ fn main() {
     const NPC_MOVEMENT_UPDATE_LABEL: &str = "npc_movement_update";
     const COLLISION_UPDATE_LABEL: &str = "collision_update";
     const INTERACT_UPDATE_LABEL: &str = "interact_update";
+    const WEREWOLF_UPDATE_LABEL: &str = "werewolf_update";
     const DESTORY_CHECK_LABEL: &str = "destroy_check";
 
     const INVENTORY_LABEL: &str = "inventory_update";
@@ -101,10 +103,16 @@ fn main() {
                     .after(COLLISION_UPDATE_LABEL)
             )
             .with_system(
+                werewolf_update
+                    .run_if_not(in_conversation_condition)
+                    .label(WEREWOLF_UPDATE_LABEL)
+                    .after(INTERACT_UPDATE_LABEL)
+            )
+            .with_system(
                 destroy_check_update
                     .run_if_not(in_conversation_condition)
                     .label(DESTORY_CHECK_LABEL)
-                    .after(INTERACT_UPDATE_LABEL)
+                    .after(WEREWOLF_UPDATE_LABEL)
             )
         )
 

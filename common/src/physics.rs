@@ -1,6 +1,6 @@
 use std::hash::Hash;
 use bevy::{ecs::system::EntityCommands, prelude::{Entity, Commands, World, FromWorld, Component}};
-use crate::{character::{CharacterBundle, Interact, CharacterType, Health, ActionHistory, MovementInput, self}, map_setup::town, inventory::{Equipment, Inventory, Item}};
+use crate::{character::{CharacterBundle, Interact, CharacterType, Health, ActionHistory, MovementInput, CharacterData}, map_setup::town, inventory::{Equipment, Inventory, Item}};
 
 #[derive(Clone)]
 pub enum Zone {
@@ -155,7 +155,8 @@ impl Map {
         sprite: crate::character::Sprite,
         position: Position,
         health: Health,
-        data: CharacterType,
+        character_type: CharacterType,
+        character_data: CharacterData,
         spawned_callback: fn(EntityCommands),
     ) {
         if let Some(tile) = self.get_mut(position.x as usize, position.y as usize) {
@@ -170,8 +171,9 @@ impl Map {
                     sprite,
                     position,
                     health,
-                    interact: Interact::from(&data),
-                    data,
+                    interact: Interact::from(&character_type),
+                    character_type,
+                    character_data,
                     action_history: ActionHistory::new(60),
                     inventory: Inventory {
                         items: vec![
