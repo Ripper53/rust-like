@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use client::render::*;
-use common::{physics::*, character::*, dialogue::Dialogue, inventory::inventory_update, util::{spawn_lerain, spawn_werewolf}, ActionInput, Scene, map_brain::werewolf_update};
-use iyes_loopless::condition::IntoConditionalExclusiveSystem;
+use common::{physics::*, character::*, dialogue::Dialogue, inventory::inventory_update, util::{spawn_lerain, spawn_werewolf}, ActionInput, Scene};
+use iyes_loopless::{condition::IntoConditionalExclusiveSystem, prelude::ConditionSet};
 
 fn setup(mut commands: Commands, mut map: ResMut<Map>) {
     map.spawn_character(
@@ -42,11 +42,12 @@ fn main() {
 
     const PLAYER_INPUT_LABEL: &str = "player_movement_input_update";
     const PLAYER_MOVEMENT_LABEL: &str = "player_movement_update";
-    const BRAIN_UPDATE_LABEL: &str = "brain_update";
+    const NPC_BEHAVIOR_UPDATE_LABEL: &str = "npc_behavior_update";
+    const PATHFINDER_BEHAVIOR_UPDATE_LABEL: &str = "pathfinder_update";
+    const WEREWOLF_BEHAVIOR_UPDATE_LABEL: &str = "werewolf_update";
     const NPC_MOVEMENT_UPDATE_LABEL: &str = "npc_movement_update";
     const COLLISION_UPDATE_LABEL: &str = "collision_update";
     const INTERACT_UPDATE_LABEL: &str = "interact_update";
-    const WEREWOLF_UPDATE_LABEL: &str = "werewolf_update";
     const DESTORY_CHECK_LABEL: &str = "destroy_check";
 
     const INVENTORY_LABEL: &str = "inventory_update";
@@ -79,16 +80,17 @@ fn main() {
                     .after(PLAYER_INPUT_LABEL)
             )
             .with_system(
-                common::map_brain::brain_update
-                    .run_if_not(in_conversation_condition)
-                    .label(BRAIN_UPDATE_LABEL)
-                    .after(PLAYER_MOVEMENT_LABEL)
+                common::behaviors::pathfinder::pathfinder_update
+                .chain(common::behaviors::werewolf::werewolf_update)
+                .run_if_not(in_conversation_condition)
+                .label(NPC_BEHAVIOR_UPDATE_LABEL)
+                .after(PLAYER_MOVEMENT_LABEL)
             )
             .with_system(
                 npc_movement_update
                     .run_if_not(in_conversation_condition)
                     .label(NPC_MOVEMENT_UPDATE_LABEL)
-                    .after(BRAIN_UPDATE_LABEL)
+                    .after(NPC_BEHAVIOR_UPDATE_LABEL)
             )
             .with_system(
                 collision_update
@@ -103,16 +105,10 @@ fn main() {
                     .after(COLLISION_UPDATE_LABEL)
             )
             .with_system(
-                werewolf_update
-                    .run_if_not(in_conversation_condition)
-                    .label(WEREWOLF_UPDATE_LABEL)
-                    .after(INTERACT_UPDATE_LABEL)
-            )
-            .with_system(
                 destroy_check_update
                     .run_if_not(in_conversation_condition)
                     .label(DESTORY_CHECK_LABEL)
-                    .after(WEREWOLF_UPDATE_LABEL)
+                    .after(INTERACT_UPDATE_LABEL)
             )
         )
 

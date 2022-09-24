@@ -15,7 +15,7 @@ use crate::{
         Interact,
         CharacterData,
     },
-    map_brain::Behavior,
+    behaviors::{pathfinder::PathfinderBehavior, werewolf::WerewolfBehavior},
 };
 
 fn spawn_character(
@@ -49,9 +49,8 @@ pub fn spawn_lerain(commands: &mut Commands, map: &mut Map, position: Position) 
         CharacterType::Lerain,
         CharacterData::Human,
         |mut entity_commands| {
-            entity_commands.insert(crate::map_brain::Brain::new(vec![
-                Behavior::default_slow_movement(),
-            ]));
+            entity_commands
+                .insert(PathfinderBehavior::new(1));
         },
     )
 }
@@ -66,9 +65,8 @@ pub fn spawn_rumdare(commands: &mut Commands, map: &mut Map, position: Position)
         CharacterType::Rumdare,
         CharacterData::Human,
         |mut entity_commands| {
-            entity_commands.insert(crate::map_brain::Brain::new(vec![
-                Behavior::default_slow_movement(),
-            ]));
+            entity_commands
+                .insert(PathfinderBehavior::new(1));
         },
     );
 }
@@ -83,10 +81,9 @@ pub fn spawn_werewolf(commands: &mut Commands, map: &mut Map, position: Position
         CharacterType::Werewolf,
         CharacterData::Werewolf { form: crate::character::WereForm::Human },
         |mut entity_commands| {
-            entity_commands.insert(crate::map_brain::Brain::new(vec![
-                Behavior::skip_movement(4),
-                Behavior::default_werewolf(),
-            ]));
+            entity_commands
+                .insert(PathfinderBehavior::new(4))
+                .insert(WerewolfBehavior::new());
         },
     );
 }

@@ -7,6 +7,7 @@ pub mod map_setup;
 pub mod dialogue;
 pub mod inventory;
 pub mod util;
+pub mod behaviors;
 
 pub enum ActionInput {
     // Take no action.
