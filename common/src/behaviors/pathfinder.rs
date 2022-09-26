@@ -1,16 +1,14 @@
-use std::cmp::Ordering;
 use bevy::prelude::{Query, Res};
 use pathfinding::prelude::astar;
-use rand::Rng;
 use crate::{
-    physics::{Map, Position, Collision, Tile, CollisionType, KrillTheaterZone},
-    character::{CharacterType, CharacterData, MovementInput, WereForm},
+    physics::{Map, Position, Collision, Tile, CollisionType},
+    character::{CharacterType, CharacterData, MovementInput},
     map_brain::BehaviorData,
 };
 
 #[derive(Default)]
-struct Pathfinder {
-    current_goal: Position,
+pub struct Pathfinder {
+    pub current_goal: Position,
     last_goal: Position,
     last_path: Vec<Position>,
     path_index: usize,
@@ -37,11 +35,12 @@ impl SkipTurn {
 }
 
 pub struct PathfinderBehavior {
-    pathfinder: Pathfinder,
+    pub pathfinder: Pathfinder,
     target: fn(
         &mut PathfinderBehavior,
         &Map,
         &CharacterType,
+        &CharacterData,
         &Position,
         &Query<(&CharacterType, &CharacterData, &Position)>,
     ),
@@ -55,6 +54,7 @@ impl PathfinderBehavior {
             &mut PathfinderBehavior,
             &Map,
             &CharacterType,
+            &CharacterData,
             &Position,
             &Query<(&CharacterType, &CharacterData, &Position)>,
         ),
@@ -64,76 +64,6 @@ impl PathfinderBehavior {
             target,
             skip_turn: SkipTurn { count: 0, skip_at: skip },
         })
-    }
-    fn get_pathfinder_target(
-        self: &mut PathfinderBehavior,
-        map: &Map,
-        character_type: &CharacterType,
-        position: &Position,
-        search_query: &Query<(&CharacterType, &CharacterData, &Position)>,
-    ) {
-        let get_target = |pathfinder: &mut Pathfinder, target_character_type: CharacterType| {
-            let mut found_target = false;
-            if let Some((_, target_data, target)) = search_query.iter().min_by(|(type_a, data_a, pos_a), (type_b, data_b, pos_b)| {
-                if **type_a == target_character_type {
-                    found_target = if let CharacterData::Werewolf { form } = data_a {
-                        matches!(form, WereForm::Beast)
-                    } else {
-                        true
-                    };
-                    if **type_b == target_character_type {
-                        let diff_a = position.distance(pos_a);
-                        let diff_b = position.distance(pos_b);
-                        diff_a.cmp(&diff_b)
-                    } else {
-                        Ordering::Less
-                    }
-                } else if **type_b == target_character_type {
-                    found_target = true;
-                    Ordering::Greater
-                } else {
-                    Ordering::Equal
-                }
-            }) {
-                if found_target {
-                    pathfinder.current_goal = *target;
-                    true
-                } else {
-                    pathfinder.current_goal = *position;
-                    false
-                }
-            } else {
-                false
-            }
-        };
-        let get_random_target = |pathfinder: &mut Pathfinder| {
-            let x = rand::thread_rng().gen_range(0..map.get_size_x() as i32);
-            let y = rand::thread_rng().gen_range(0..map.get_size_y() as i32);
-            pathfinder.current_goal = Position::new(x, y);
-        };
-        match character_type {
-            CharacterType::Player => {},
-            CharacterType::Lerain => {
-                if !get_target(&mut self.pathfinder, CharacterType::Werewolf) && self.pathfinder.current_goal == *position {
-                    if let Some(tile) = map.get(position.x as usize, position.y as usize) {
-                        if let Some(krill_theater) = tile.krill_theater() {
-                            match krill_theater {
-                                KrillTheaterZone::Free => {
-                                    get_random_target(&mut self.pathfinder);
-                                },
-                                KrillTheaterZone::LineUp(target) => {
-                                    self.pathfinder.current_goal = *target;
-                                },
-                            }
-                        } else {
-                            get_random_target(&mut self.pathfinder);
-                        }
-                    }
-                }
-            },
-            CharacterType::Rumdare => { get_target(&mut self.pathfinder, CharacterType::Werewolf); },
-            CharacterType::Werewolf => { get_target(&mut self.pathfinder, CharacterType::Player); },
-        }
     }
 }
 
@@ -171,7 +101,7 @@ impl Position {
         add_to_neighbors(Position::new(self.x - 1, self.y));
         neighbors
     }
-    fn distance(&self, position: &Position) -> u32 {
+    pub fn distance(&self, position: &Position) -> u32 {
         let diff = position - self;
         (diff.x * diff.x) as u32 + (diff.y * diff.y) as u32
     }
@@ -186,7 +116,14 @@ pub fn pathfinder_update(
     for (mut pathfinder, character_type, character_data, position, mut movement_input) in query.iter_mut() {
         *movement_input = if pathfinder.check_conditions() {
             if pathfinder.behavior.skip_turn.check() {
-                (pathfinder.behavior.target)(&mut pathfinder.behavior, &map, character_type, position, &search_query);
+                (pathfinder.behavior.target)(
+                    &mut pathfinder.behavior,
+                    &map,
+                    character_type,
+                    character_data,
+                    position,
+                    &search_query,
+                );
                 let mut pathfinder = &mut pathfinder.behavior.pathfinder;
                 // Calculate path.
                 if let Some((path, _)) = astar(

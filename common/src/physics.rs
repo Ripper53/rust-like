@@ -217,6 +217,26 @@ impl Map {
             None
         }
     }
+    pub fn get_in_vision(&self, position: Position) -> Vec::<&Tile> {
+        let in_vision = Vec::<&Tile>::new();
+        let in_vision = self.vision_recursion(position.clone(), in_vision, |position| position.x += 1);
+        let in_vision = self.vision_recursion(position.clone(), in_vision, |position| position.x -= 1);
+        let in_vision = self.vision_recursion(position.clone(), in_vision, |position| position.y += 1);
+        self.vision_recursion(position, in_vision, |position| position.y -= 1)
+    }
+    fn vision_recursion<'a>(&'a self, mut position: Position, mut in_vision: Vec::<&'a Tile>, increment_position: fn(&mut Position)) -> Vec::<&'a Tile> {
+        let x = position.x as usize;
+        let y = position.y as usize;
+        while let Some(tile) = self.get(x, y) {
+            if matches!(tile, Tile::Ground { .. }) {
+                in_vision.push(tile);
+                increment_position(&mut position);
+            } else {
+                break;
+            }
+        }
+        in_vision
+    }
 }
 impl FromWorld for Map {
     fn from_world(_world: &mut World) -> Self {
