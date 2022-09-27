@@ -147,10 +147,17 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                         active.select(Some(dialogue.active));
                         rect.render_stateful_widget(options, main_layout[3], &mut active);
                     }
-                    let map = app.world.resource::<Map>();
-                    let camera = app.world.resource::<CameraData>();
-                    let canvas = MapCanvas { map, center_position: camera.position };
-                    rect.render_widget(canvas, main_layout[1]);
+                    let mut player_position_query = app.world.query_filtered::<&Position, With<PlayerTag>>();
+                    if let Ok(position) = player_position_query.get_single(&app.world) {
+                        let map = app.world.resource::<Map>();
+                        let camera = app.world.resource::<CameraData>();
+                        let canvas = MapCanvas {
+                            map,
+                            center_position: camera.position,
+                            vision_position: position.clone(),
+                        };
+                        rect.render_widget(canvas, main_layout[1]);
+                    }
                 },
                 Menu::Inventory => {
                     let mut query = app.world.query_filtered::<&Inventory, With<PlayerTag>>();

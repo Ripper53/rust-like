@@ -1,6 +1,13 @@
-use std::hash::Hash;
-use bevy::{ecs::system::EntityCommands, prelude::{Entity, Commands, World, FromWorld, Component}};
-use crate::{character::{CharacterBundle, Interact, CharacterType, Health, ActionHistory, MovementInput, CharacterData}, map_setup::town, inventory::{Equipment, Inventory, Item}};
+use std::{hash::Hash, collections::HashSet};
+use bevy::{
+    ecs::system::EntityCommands,
+    prelude::{Entity, Commands, World, FromWorld, Component},
+};
+use crate::{
+    character::{CharacterBundle, Interact, CharacterType, Health, ActionHistory, MovementInput, CharacterData},
+    map_setup::town,
+    inventory::{Equipment, Inventory, Item},
+};
 
 #[derive(Clone)]
 pub enum Zone {
@@ -37,6 +44,18 @@ pub enum Tile {
     Obstacle {
         occupier: Option<Occupier>,
     },
+}
+impl PartialEq for Tile {
+    fn eq(&self, other: &Self) -> bool {
+        match self {
+            Tile::Ground { .. } => matches!(other, Tile::Ground { .. }),
+            Tile::Wall => matches!(other, Tile::Wall),
+            Tile::Obstacle { .. } => matches!(other, Tile::Obstacle { .. }),
+        }
+    }
+    fn ne(&self, other: &Self) -> bool {
+        !self.eq(other)
+    }
 }
 #[derive(Clone)]
 pub struct Occupier {
@@ -217,23 +236,41 @@ impl Map {
             None
         }
     }
-    pub fn get_in_vision(&self, position: Position) -> Vec::<&Tile> {
-        let in_vision = Vec::<&Tile>::new();
-        let in_vision = self.vision_recursion(position.clone(), in_vision, |position| position.x += 1);
-        let in_vision = self.vision_recursion(position.clone(), in_vision, |position| position.x -= 1);
-        let in_vision = self.vision_recursion(position.clone(), in_vision, |position| position.y += 1);
-        self.vision_recursion(position, in_vision, |position| position.y -= 1)
+    pub fn get_in_vision(&self, position: Position) -> HashSet::<Position> {
+        let in_vision = HashSet::<Position>::new();
+        let in_vision = self.vision_recursion(position.clone(), in_vision, |p| p.x += 1, |p| p.y += 1);
+        let in_vision = self.vision_recursion(position.clone(), in_vision, |p| p.x += 1, |p| p.y -= 1);
+        let in_vision = self.vision_recursion(position.clone(), in_vision, |p| p.x -= 1, |p| p.y -= 1);
+        self.vision_recursion(position, in_vision, |p| p.x -= 1, |p| p.y += 1)
     }
-    fn vision_recursion<'a>(&'a self, mut position: Position, mut in_vision: Vec::<&'a Tile>, increment_position: fn(&mut Position)) -> Vec::<&'a Tile> {
-        let x = position.x as usize;
-        let y = position.y as usize;
-        while let Some(tile) = self.get(x, y) {
-            if matches!(tile, Tile::Ground { .. }) {
-                in_vision.push(tile);
-                increment_position(&mut position);
-            } else {
+    fn vision_recursion<'a>(
+        &'a self,
+        initial_position: Position,
+        mut in_vision: HashSet::<Position>,
+        increment_position: fn(&mut Position),
+        other_increment_position: fn(&mut Position),
+    ) -> HashSet::<Position> {
+        let mut position = initial_position.clone();
+        while let Some(tile) = self.get(position.x as usize, position.y as usize) {
+            if matches!(tile, Tile::Wall) {
+                in_vision.insert(position.clone());
                 break;
             }
+            in_vision.insert(position.clone());
+            let mut saved_position = position.clone();
+            increment_position(&mut position);
+            while let Some(tile) = self.get(position.x as usize, position.y as usize) {
+                if matches!(tile, Tile::Wall) {
+                    in_vision.insert(position.clone());
+                    break;
+                }
+                in_vision.insert(position.clone());
+                saved_position = position.clone();
+                increment_position(&mut position);
+            }
+            position = saved_position.clone();
+            //position.x = initial_position.x;
+            other_increment_position(&mut position);
         }
         in_vision
     }

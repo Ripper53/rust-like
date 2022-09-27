@@ -4,6 +4,7 @@ use tui::widgets::{Widget, Paragraph, Block, Borders};
 pub struct MapCanvas<'a> {
     pub map: &'a Map,
     pub center_position: Position,
+    pub vision_position: Position,
 }
 
 impl<'a> Widget for MapCanvas<'a> {
@@ -45,25 +46,30 @@ impl<'a> Widget for MapCanvas<'a> {
         };
 
         let mut text = String::with_capacity((size_x * size_y) + size_y);
+        let in_vision = self.map.get_in_vision(self.vision_position);
         for y in start_y..size_y {
             for x in start_x..size_x {
                 if let Some(tile) = self.map.get(x, size_y - 1 - y) {
-                    let character = match tile {
-                        Tile::Ground { occupier, .. } => {
-                            if let Some(occupier) = occupier {
-                                occupier.sprite.character
-                            } else {
-                                ' '
-                            }
-                        },
-                        Tile::Wall => '#',
-                        Tile::Obstacle { occupier } => {
-                            if let Some(occupier) = occupier {
-                                occupier.sprite.character
-                            } else {
-                                '%'
-                            }
-                        },
+                    let character = if in_vision.contains(&Position::new(x as i32, y as i32)) {
+                        match tile {
+                            Tile::Ground { occupier, .. } => {
+                                if let Some(occupier) = occupier {
+                                    occupier.sprite.character
+                                } else {
+                                    ' '
+                                }
+                            },
+                            Tile::Wall => '#',
+                            Tile::Obstacle { occupier } => {
+                                if let Some(occupier) = occupier {
+                                    occupier.sprite.character
+                                } else {
+                                    '%'
+                                }
+                            },
+                        }
+                    } else {
+                        ' '
                     };
                     text.push(character);
                 }
