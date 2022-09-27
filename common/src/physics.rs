@@ -238,39 +238,67 @@ impl Map {
     }
     pub fn get_in_vision(&self, position: Position) -> HashSet::<Position> {
         let in_vision = HashSet::<Position>::new();
-        let in_vision = self.vision_recursion(position.clone(), in_vision, |p| p.x += 1, |p| p.y += 1);
-        let in_vision = self.vision_recursion(position.clone(), in_vision, |p| p.x += 1, |p| p.y -= 1);
-        let in_vision = self.vision_recursion(position.clone(), in_vision, |p| p.x -= 1, |p| p.y -= 1);
-        self.vision_recursion(position, in_vision, |p| p.x -= 1, |p| p.y += 1)
+
+        let in_vision = self.vision_recursion(position.clone(), in_vision, |p| p.x += 1, |p| p.y += 1, |p, i| p.x = i.x);
+        let in_vision = self.vision_recursion(position.clone(), in_vision, |p| p.x += 1, |p| p.y -= 1, |p, i| p.x = i.x);
+        let in_vision = self.vision_recursion(position.clone(), in_vision, |p| p.x -= 1, |p| p.y -= 1, |p, i| p.x = i.x);
+        let in_vision = self.vision_recursion(position, in_vision, |p| p.x -= 1, |p| p.y += 1, |p, i| p.x = i.x);
+
+        let in_vision = self.vision_recursion(position.clone(), in_vision, |p| p.y += 1, |p| p.x += 1, |p, i| p.y = i.y);
+        let in_vision = self.vision_recursion(position.clone(), in_vision, |p| p.y += 1, |p| p.x -= 1, |p, i| p.y = i.y);
+        let in_vision = self.vision_recursion(position.clone(), in_vision, |p| p.y -= 1, |p| p.x -= 1, |p, i| p.y = i.y);
+        self.vision_recursion(position, in_vision, |p| p.y -= 1, |p| p.x += 1, |p, i| p.y = i.y)
     }
-    fn vision_recursion<'a>(
-        &'a self,
+    fn vision_recursion(
+        &self,
         initial_position: Position,
         mut in_vision: HashSet::<Position>,
-        increment_position: fn(&mut Position),
-        other_increment_position: fn(&mut Position),
+        increment_1_position: fn(&mut Position),
+        increment_2_position: fn(&mut Position),
+        reset_1_position: fn(&mut Position, &Position),
     ) -> HashSet::<Position> {
+        let mut max_value: Option<usize> = None;
         let mut position = initial_position.clone();
+        let mut insert = |position: Position| {
+            const DISTANCE: u32 = 20;
+            if position.distance(&initial_position) < DISTANCE * DISTANCE {
+                in_vision.insert(position);
+            }
+        };
         while let Some(tile) = self.get(position.x as usize, position.y as usize) {
             if matches!(tile, Tile::Wall) {
-                in_vision.insert(position.clone());
+                insert(position.clone());
                 break;
             }
-            in_vision.insert(position.clone());
+            insert(position.clone());
             let mut saved_position = position.clone();
-            increment_position(&mut position);
+            increment_1_position(&mut position);
+            let mut increment_count = 0;
             while let Some(tile) = self.get(position.x as usize, position.y as usize) {
+                increment_count += 1;
+                if let Some(max_value) = max_value {
+                    if increment_count > max_value {
+                        break;
+                    }
+                }
                 if matches!(tile, Tile::Wall) {
-                    in_vision.insert(position.clone());
+                    insert(position.clone());
                     break;
                 }
-                in_vision.insert(position.clone());
+                insert(position.clone());
                 saved_position = position.clone();
-                increment_position(&mut position);
+                increment_1_position(&mut position);
+            }
+            if let Some(max_value_size) = max_value {
+                if increment_count < max_value_size {
+                    max_value = Some(increment_count);
+                }
+            } else {
+                max_value = Some(increment_count);
             }
             position = saved_position.clone();
-            //position.x = initial_position.x;
-            other_increment_position(&mut position);
+            reset_1_position(&mut position, &initial_position);
+            increment_2_position(&mut position);
         }
         in_vision
     }

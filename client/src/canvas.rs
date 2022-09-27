@@ -1,5 +1,5 @@
 use common::physics::{Map, Tile, Position};
-use tui::widgets::{Widget, Paragraph, Block, Borders};
+use tui::{widgets::{Widget, Paragraph, Block, Borders}, style::{Style, Color}, text::{Span, Spans}};
 
 pub struct MapCanvas<'a> {
     pub map: &'a Map,
@@ -45,36 +45,38 @@ impl<'a> Widget for MapCanvas<'a> {
             (0, 0)
         };
 
-        let mut text = String::with_capacity((size_x * size_y) + size_y);
+        let mut text = Vec::<Spans>::with_capacity(size_y);
         let in_vision = self.map.get_in_vision(self.vision_position);
         for y in start_y..size_y {
+            let mut t = Vec::<Span>::with_capacity(size_x);
             for x in start_x..size_x {
-                if let Some(tile) = self.map.get(x, size_y - 1 - y) {
+                let y = size_y - 1 - y;
+                if let Some(tile) = self.map.get(x, y) {
                     let character = if in_vision.contains(&Position::new(x as i32, y as i32)) {
                         match tile {
                             Tile::Ground { occupier, .. } => {
                                 if let Some(occupier) = occupier {
-                                    occupier.sprite.character
+                                    Span::raw(occupier.sprite.character.to_string())
                                 } else {
-                                    ' '
+                                    Span::raw(" ")
                                 }
                             },
-                            Tile::Wall => '#',
+                            Tile::Wall => Span::raw("#"),
                             Tile::Obstacle { occupier } => {
                                 if let Some(occupier) = occupier {
-                                    occupier.sprite.character
+                                    Span::raw(occupier.sprite.character.to_string())
                                 } else {
-                                    '%'
+                                    Span::raw("%")
                                 }
                             },
                         }
                     } else {
-                        ' '
+                        Span::styled("X", Style::default().fg(Color::DarkGray))
                     };
-                    text.push(character);
+                    t.push(character);
                 }
             }
-            text.push('\n');
+            text.push(Spans::from(t));
         }
 
         let p = Paragraph::new(text)

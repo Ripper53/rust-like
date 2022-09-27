@@ -158,9 +158,10 @@ fn get_pathfinder_target(
 ) {
     let get_target = |pathfinder: &mut Pathfinder, target_character_type: CharacterType| {
         let mut found_target = false;
+        let in_vision = map.get_in_vision(position.clone());
         if let Some((_, target_data, target)) = search_query.iter().min_by(|(type_a, data_a, pos_a), (type_b, data_b, pos_b)| {
             if **type_a == target_character_type {
-                found_target = if let CharacterData::Werewolf { form } = data_a {
+                found_target = in_vision.contains(pos_a) && if let CharacterData::Werewolf { form } = data_a {
                     matches!(form, WereForm::Beast)
                 } else {
                     true
