@@ -12,7 +12,7 @@ use crate::{
         Velocity,
         Collision,
         CollisionType,
-        KrillTheaterZone,
+        KrillTheaterZone, MapCache,
     },
     character::{
         Sprite,
@@ -85,7 +85,7 @@ pub fn spawn_werewolf(commands: &mut Commands, map: &mut Map, position: Position
     spawn_character(
         commands,
         map,
-        Sprite::new('W'),
+        Sprite::new('C'),
         position,
         Health::new(1),
         CharacterType::Werewolf,
@@ -94,7 +94,7 @@ pub fn spawn_werewolf(commands: &mut Commands, map: &mut Map, position: Position
             entity_commands
                 .insert(PathfinderBehavior::new(
                     4,
-                    |behavior, map, self_character_type, self_character_data, self_position, query| {
+                    |behavior, map, map_cache, self_character_type, self_character_data, self_position, query| {
                         if let CharacterData::Werewolf { form } = self_character_data {
                             behavior.pathfinder.current_goal = Position::new(0, 0);
                             match form {
@@ -102,6 +102,7 @@ pub fn spawn_werewolf(commands: &mut Commands, map: &mut Map, position: Position
                                     get_pathfinder_target(
                                         behavior,
                                         map,
+                                        map_cache,
                                         self_character_type,
                                         self_character_data,
                                         self_position,
@@ -151,21 +152,25 @@ pub fn spawn_projectile(
 fn get_pathfinder_target(
     pathfinder: &mut PathfinderBehavior,
     map: &Map,
+    map_cache: &mut MapCache,
     character_type: &CharacterType,
     character_data: &CharacterData,
     position: &Position,
     search_query: &Query<(&CharacterType, &CharacterData, &Position)>,
 ) {
-    let get_target = |pathfinder: &mut Pathfinder, target_character_type: CharacterType| {
+    let mut get_target = |pathfinder: &mut Pathfinder, target_character_type: CharacterType| {
         let mut found_target = false;
-        let in_vision = map.get_in_vision(position.clone());
+        let in_vision = map.get_in_vision(map_cache, position.clone());
+        let mut check_found_target = |pos: &Position, data: &CharacterData| {
+            found_target = in_vision.contains(pos) && if let CharacterData::Werewolf { form } = data {
+                matches!(form, WereForm::Beast)
+            } else {
+                true
+            };
+        };
         if let Some((_, target_data, target)) = search_query.iter().min_by(|(type_a, data_a, pos_a), (type_b, data_b, pos_b)| {
             if **type_a == target_character_type {
-                found_target = in_vision.contains(pos_a) && if let CharacterData::Werewolf { form } = data_a {
-                    matches!(form, WereForm::Beast)
-                } else {
-                    true
-                };
+                check_found_target(pos_a, data_a);
                 if **type_b == target_character_type {
                     let diff_a = position.distance(pos_a);
                     let diff_b = position.distance(pos_b);
@@ -174,7 +179,7 @@ fn get_pathfinder_target(
                     Ordering::Less
                 }
             } else if **type_b == target_character_type {
-                found_target = true;
+                check_found_target(pos_b, data_b);
                 Ordering::Greater
             } else {
                 Ordering::Equal

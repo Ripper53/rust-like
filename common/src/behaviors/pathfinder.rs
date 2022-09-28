@@ -1,7 +1,7 @@
-use bevy::prelude::{Query, Res};
+use bevy::prelude::{Query, Res, ResMut};
 use pathfinding::prelude::astar;
 use crate::{
-    physics::{Map, Position, Collision, Tile, CollisionType},
+    physics::{Map, Position, Collision, Tile, CollisionType, MapCache},
     character::{CharacterType, CharacterData, MovementInput},
     map_brain::BehaviorData,
 };
@@ -39,6 +39,7 @@ pub struct PathfinderBehavior {
     target: fn(
         &mut PathfinderBehavior,
         &Map,
+        &mut MapCache,
         &CharacterType,
         &CharacterData,
         &Position,
@@ -53,6 +54,7 @@ impl PathfinderBehavior {
         target: fn(
             &mut PathfinderBehavior,
             &Map,
+            &mut MapCache,
             &CharacterType,
             &CharacterData,
             &Position,
@@ -109,6 +111,7 @@ impl Position {
 
 pub fn pathfinder_update(
     map: Res<Map>,
+    mut map_cache: ResMut<MapCache>,
     mut query: Query<(&mut BehaviorData<PathfinderBehavior>, &CharacterType, &CharacterData, &Position, &mut MovementInput)>,
     search_query: Query<(&CharacterType, &CharacterData, &Position)>,
     mut collision_query: Query<&mut Collision>,
@@ -119,6 +122,7 @@ pub fn pathfinder_update(
                 (pathfinder.behavior.target)(
                     &mut pathfinder.behavior,
                     &map,
+                    &mut map_cache,
                     character_type,
                     character_data,
                     position,

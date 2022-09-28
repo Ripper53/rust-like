@@ -1,14 +1,15 @@
-use common::physics::{Map, Tile, Position};
+use bevy::prelude::World;
+use common::physics::{Map, Tile, Position, MapCache};
 use tui::{widgets::{Widget, Paragraph, Block, Borders}, style::{Style, Color}, text::{Span, Spans}};
 
 pub struct MapCanvas<'a> {
-    pub map: &'a Map,
+    pub world: &'a mut World,
     pub center_position: Position,
     pub vision_position: Position,
 }
 
 impl<'a> Widget for MapCanvas<'a> {
-    fn render(self, area: tui::layout::Rect, buf: &mut tui::buffer::Buffer) {
+    fn render(mut self, area: tui::layout::Rect, buf: &mut tui::buffer::Buffer) {
         fn get_center_coordinate(map_size: usize, screen_size: usize, target: usize) -> usize {
             const OFFSET: usize = 2;
             let diff = map_size - screen_size + OFFSET; // Offset to bottom.
@@ -29,8 +30,9 @@ impl<'a> Widget for MapCanvas<'a> {
             center
         }
 
-        let size_x = self.map.get_size_x();
-        let size_y = self.map.get_size_y();
+        let map = self.world.resource::<Map>();
+        let size_x = map.get_size_x();
+        let size_y = map.get_size_y();
         let screen_width = area.width as usize;
         let screen_height = area.height as usize;
 
@@ -46,13 +48,14 @@ impl<'a> Widget for MapCanvas<'a> {
         };
 
         let mut text = Vec::<Spans>::with_capacity(size_y);
-        let in_vision = self.map.get_in_vision(self.vision_position);
+        //let mut map_cache = self.world.resource_mut::<MapCache>();
+        let in_vision = map.get_in_vision(&mut MapCache::default(), self.vision_position);
         for y in start_y..size_y {
             let mut t = Vec::<Span>::with_capacity(size_x);
             for x in start_x..size_x {
                 let y = size_y - 1 - y;
-                if let Some(tile) = self.map.get(x, y) {
-                    let character = if in_vision.contains(&Position::new(x as i32, y as i32)) {
+                if let Some(tile) = map.get(x, y) {
+                    let character = if /*in_vision.contains(&Position::new(x as i32, y as i32))*/ true {
                         match tile {
                             Tile::Ground { occupier, .. } => {
                                 if let Some(occupier) = occupier {

@@ -236,27 +236,27 @@ impl Map {
             None
         }
     }
-    pub fn get_in_vision(&self, position: Position) -> HashSet::<Position> {
-        let in_vision = HashSet::<Position>::new();
+    pub fn get_in_vision<'a>(&'a self, map_cache: &'a mut MapCache, position: Position) -> &'a HashSet::<Position> {
+        self.vision_recursion(position.clone(), &mut map_cache.in_vision, |p| p.x += 1, |p| p.y += 1, |p, i| p.x = i.x);
+        self.vision_recursion(position.clone(), &mut map_cache.in_vision, |p| p.x += 1, |p| p.y -= 1, |p, i| p.x = i.x);
+        self.vision_recursion(position.clone(), &mut map_cache.in_vision, |p| p.x -= 1, |p| p.y -= 1, |p, i| p.x = i.x);
+        self.vision_recursion(position, &mut map_cache.in_vision, |p| p.x -= 1, |p| p.y += 1, |p, i| p.x = i.x);
 
-        let in_vision = self.vision_recursion(position.clone(), in_vision, |p| p.x += 1, |p| p.y += 1, |p, i| p.x = i.x);
-        let in_vision = self.vision_recursion(position.clone(), in_vision, |p| p.x += 1, |p| p.y -= 1, |p, i| p.x = i.x);
-        let in_vision = self.vision_recursion(position.clone(), in_vision, |p| p.x -= 1, |p| p.y -= 1, |p, i| p.x = i.x);
-        let in_vision = self.vision_recursion(position, in_vision, |p| p.x -= 1, |p| p.y += 1, |p, i| p.x = i.x);
+        self.vision_recursion(position.clone(), &mut map_cache.in_vision, |p| p.y += 1, |p| p.x += 1, |p, i| p.y = i.y);
+        self.vision_recursion(position.clone(), &mut map_cache.in_vision, |p| p.y += 1, |p| p.x -= 1, |p, i| p.y = i.y);
+        self.vision_recursion(position.clone(), &mut map_cache.in_vision, |p| p.y -= 1, |p| p.x -= 1, |p, i| p.y = i.y);
+        self.vision_recursion(position, &mut map_cache.in_vision, |p| p.y -= 1, |p| p.x += 1, |p, i| p.y = i.y);
 
-        let in_vision = self.vision_recursion(position.clone(), in_vision, |p| p.y += 1, |p| p.x += 1, |p, i| p.y = i.y);
-        let in_vision = self.vision_recursion(position.clone(), in_vision, |p| p.y += 1, |p| p.x -= 1, |p, i| p.y = i.y);
-        let in_vision = self.vision_recursion(position.clone(), in_vision, |p| p.y -= 1, |p| p.x -= 1, |p, i| p.y = i.y);
-        self.vision_recursion(position, in_vision, |p| p.y -= 1, |p| p.x += 1, |p, i| p.y = i.y)
+        &map_cache.in_vision
     }
     fn vision_recursion(
         &self,
         initial_position: Position,
-        mut in_vision: HashSet::<Position>,
+        in_vision: &mut HashSet::<Position>,
         increment_1_position: fn(&mut Position),
         increment_2_position: fn(&mut Position),
         reset_1_position: fn(&mut Position, &Position),
-    ) -> HashSet::<Position> {
+    ) {
         let mut max_value: Option<usize> = None;
         let mut position = initial_position.clone();
         let mut insert = |position: Position| {
@@ -300,7 +300,6 @@ impl Map {
             reset_1_position(&mut position, &initial_position);
             increment_2_position(&mut position);
         }
-        in_vision
     }
 }
 impl FromWorld for Map {
@@ -310,6 +309,11 @@ impl FromWorld for Map {
         map
     }
 }
+#[derive(Default)]
+pub struct MapCache {
+    in_vision: HashSet<Position>,
+}
+
 impl Position {
     pub fn get_from_map<'a>(&'a self, map: &'a Map) -> Option<&Tile> {
         if self.x < 0 || self.y < 0 {

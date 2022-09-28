@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use client::render::*;
 use common::{physics::*, character::*, dialogue::Dialogue, inventory::inventory_update, util::{spawn_lerain, spawn_werewolf}, ActionInput, Scene};
-use iyes_loopless::{condition::IntoConditionalExclusiveSystem, prelude::ConditionSet};
+use iyes_loopless::{condition::IntoConditionalExclusiveSystem};
 
 fn setup(mut commands: Commands, mut map: ResMut<Map>) {
     map.spawn_character(
@@ -43,8 +43,6 @@ fn main() {
     const PLAYER_INPUT_LABEL: &str = "player_movement_input_update";
     const PLAYER_MOVEMENT_LABEL: &str = "player_movement_update";
     const NPC_BEHAVIOR_UPDATE_LABEL: &str = "npc_behavior_update";
-    const PATHFINDER_BEHAVIOR_UPDATE_LABEL: &str = "pathfinder_update";
-    const WEREWOLF_BEHAVIOR_UPDATE_LABEL: &str = "werewolf_update";
     const NPC_MOVEMENT_UPDATE_LABEL: &str = "npc_movement_update";
     const COLLISION_UPDATE_LABEL: &str = "collision_update";
     const INTERACT_UPDATE_LABEL: &str = "interact_update";
@@ -59,6 +57,7 @@ fn main() {
         .insert_resource(ActionInput::None)
         .insert_resource(Dialogue::default())
         .init_resource::<Map>()
+        .insert_resource(MapCache::default())
         .add_startup_system(setup)
 
         .add_system_set(SystemSet::on_update(Scene::Map)

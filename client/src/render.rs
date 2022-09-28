@@ -149,12 +149,12 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                     }
                     let mut player_position_query = app.world.query_filtered::<&Position, With<PlayerTag>>();
                     if let Ok(position) = player_position_query.get_single(&app.world) {
-                        let map = app.world.resource::<Map>();
-                        let camera = app.world.resource::<CameraData>();
+                        let vision_position = position.clone();
+                        let center_position = app.world.resource::<CameraData>().position;
                         let canvas = MapCanvas {
-                            map,
-                            center_position: camera.position,
-                            vision_position: position.clone(),
+                            world: &mut app.world,
+                            center_position,
+                            vision_position,
                         };
                         rect.render_widget(canvas, main_layout[1]);
                     }
