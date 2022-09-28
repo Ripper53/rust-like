@@ -9,7 +9,7 @@ pub struct MapCanvas<'a> {
 }
 
 impl<'a> Widget for MapCanvas<'a> {
-    fn render(mut self, area: tui::layout::Rect, buf: &mut tui::buffer::Buffer) {
+    fn render(self, area: tui::layout::Rect, buf: &mut tui::buffer::Buffer) {
         fn get_center_coordinate(map_size: usize, screen_size: usize, target: usize) -> usize {
             const OFFSET: usize = 2;
             let diff = map_size - screen_size + OFFSET; // Offset to bottom.
@@ -49,7 +49,7 @@ impl<'a> Widget for MapCanvas<'a> {
 
         let mut text = Vec::<Spans>::with_capacity(size_y);
         //let mut map_cache = self.world.resource_mut::<MapCache>();
-        let in_vision = map.get_in_vision(&mut MapCache::default(), self.vision_position);
+        //let in_vision = map.get_in_vision(&mut MapCache::default(), self.vision_position);
         for y in start_y..size_y {
             let mut t = Vec::<Span>::with_capacity(size_x);
             for x in start_x..size_x {

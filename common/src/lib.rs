@@ -1,5 +1,6 @@
 use bevy::prelude::SystemLabel;
 
+pub mod constants;
 pub mod physics;
 pub mod character;
 pub mod map_brain;

@@ -24,6 +24,15 @@ impl Sprite {
             character,
         }
     }
+    pub fn set_character(&mut self, character: char, map: &mut Map, position: &Position) {
+        if self.character == character { return; }
+        self.character = character;
+        if let Some(Tile::Ground { occupier, .. }) = map.get_mut(position.x as usize, position.y as usize) {
+            if let Some(occupier) = occupier {
+                occupier.sprite = self.clone();
+            }
+        }
+    }
 }
 
 #[derive(Component)]
@@ -106,11 +115,13 @@ pub enum CharacterType {
     Rumdare,
     Werewolf,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum WereForm {
     Human,
     Beast,
 }
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub enum CharacterData {
     Human,
     Werewolf {

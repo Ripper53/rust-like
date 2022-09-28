@@ -67,6 +67,10 @@ impl PathfinderBehavior {
             skip_turn: SkipTurn { count: 0, skip_at: skip },
         })
     }
+    pub fn set_skip_turn(&mut self, skip_at: u32) {
+        self.skip_turn.skip_at = skip_at;
+        self.skip_turn.count = 0;
+    }
 }
 
 impl Position {

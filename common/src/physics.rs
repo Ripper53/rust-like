@@ -237,6 +237,8 @@ impl Map {
         }
     }
     pub fn get_in_vision<'a>(&'a self, map_cache: &'a mut MapCache, position: Position) -> &'a HashSet::<Position> {
+        map_cache.in_vision.clear();
+
         self.vision_recursion(position.clone(), &mut map_cache.in_vision, |p| p.x += 1, |p| p.y += 1, |p, i| p.x = i.x);
         self.vision_recursion(position.clone(), &mut map_cache.in_vision, |p| p.x += 1, |p| p.y -= 1, |p, i| p.x = i.x);
         self.vision_recursion(position.clone(), &mut map_cache.in_vision, |p| p.x -= 1, |p| p.y -= 1, |p, i| p.x = i.x);

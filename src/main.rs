@@ -20,18 +20,6 @@ fn setup(mut commands: Commands, mut map: ResMut<Map>) {
     spawn_lerain(&mut commands, &mut map, Position::new(30, 10));
     spawn_lerain(&mut commands, &mut map, Position::new(25, 20));
     spawn_werewolf(&mut commands, &mut map, Position::new(2, 4));
-    /*map.spawn_character(
-        &mut commands,
-        common::character::Sprite::new('L'),
-        Position::new(2, 1),
-        Velocity::new(0, 0),
-        CharacterData::Lerain,
-        |mut entity_commands| {
-            entity_commands.insert(common::map_brain::Brain::new(vec![
-                Behavior::default_lawyer(),
-            ]));
-        },
-    );*/
 }
 
 fn in_conversation_condition(dialogue: Res<Dialogue>) -> bool {
