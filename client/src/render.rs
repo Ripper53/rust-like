@@ -79,6 +79,7 @@ fn update_camera_system(mut camera: ResMut<CameraData>, query: Query<&Position, 
 pub fn runner(mut app: App) {
     setup_game(&mut app).expect("setup_game");
 }
+
 fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     app
         .insert_resource(CameraData::default())

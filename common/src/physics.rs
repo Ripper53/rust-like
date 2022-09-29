@@ -1,4 +1,4 @@
-use std::{hash::Hash, collections::HashSet};
+use std::{hash::Hash, collections::HashSet, slice::Iter};
 use bevy::{
     ecs::system::EntityCommands,
     prelude::{Entity, Commands, World, FromWorld, Component},
@@ -197,12 +197,6 @@ impl Map {
                     inventory: Inventory {
                         items: vec![
                             Box::new(Item::new_pistol()),
-                            Box::new(Item::new_apple()),
-                            Box::new(Item::new_banana()),
-                            Box::new(Item::new_apple()),
-                            Box::new(Item::new_apple()),
-                            Box::new(Item::new_banana()),
-                            Box::new(Item::new_apple()),
                         ],
                     },
                     equipment: Equipment::default(),
@@ -339,7 +333,7 @@ pub struct Position {
     pub y: i32,
 }
 impl Position {
-    pub fn new(x: i32, y: i32) -> Self {
+    pub const fn new(x: i32, y: i32) -> Self {
         Position { x, y }
     }
 }

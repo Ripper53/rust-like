@@ -1,3 +1,8 @@
+pub mod util;
+pub mod lerain;
+pub mod rumdare;
+pub mod werewolf;
+
 use bevy::prelude::{Query, Res, ResMut};
 use pathfinding::prelude::astar;
 use crate::{
@@ -7,8 +12,8 @@ use crate::{
 };
 
 #[derive(Default)]
-pub struct Pathfinder {
-    pub current_goal: Position,
+struct Pathfinder {
+    current_goal: Position,
     last_goal: Position,
     last_path: Vec<Position>,
     path_index: usize,
@@ -34,42 +39,62 @@ impl SkipTurn {
     }
 }
 
+pub struct ReachedGoalParams<'a> {
+    pub map: &'a Map,
+    pub character_type: &'a CharacterType,
+    pub character_data: &'a CharacterData,
+    pub position: &'a Position,
+}
+type GetTarget = fn(
+    &mut PathfinderBehavior,
+    &Map,
+    &mut MapCache,
+    &CharacterType,
+    &CharacterData,
+    &Position,
+    &Query<(&CharacterType, &CharacterData, &Position)>,
+);
+type ReachedGoal = fn(ReachedGoalParams);
 pub struct PathfinderBehavior {
-    pub pathfinder: Pathfinder,
-    target: fn(
-        &mut PathfinderBehavior,
-        &Map,
-        &mut MapCache,
-        &CharacterType,
-        &CharacterData,
-        &Position,
-        &Query<(&CharacterType, &CharacterData, &Position)>,
-    ),
+    pathfinder: Pathfinder,
+    target: GetTarget,
     skip_turn: SkipTurn,
+    reached_goal: Option<ReachedGoal>,
 }
 
 impl PathfinderBehavior {
-    pub fn new(
-        skip: u32,
-        target: fn(
-            &mut PathfinderBehavior,
-            &Map,
-            &mut MapCache,
-            &CharacterType,
-            &CharacterData,
-            &Position,
-            &Query<(&CharacterType, &CharacterData, &Position)>,
-        ),
-    ) -> BehaviorData<PathfinderBehavior> {
+    pub fn new(skip: u32, target: GetTarget) -> BehaviorData<PathfinderBehavior> {
         BehaviorData::new(PathfinderBehavior {
             pathfinder: Pathfinder::default(),
             target,
             skip_turn: SkipTurn { count: 0, skip_at: skip },
+            reached_goal: None,
         })
     }
+
     pub fn set_skip_turn(&mut self, skip_at: u32) {
         self.skip_turn.skip_at = skip_at;
         self.skip_turn.count = 0;
+    }
+
+    pub fn set_goal(&mut self, goal: Position) -> &mut Self {
+        if self.reached_goal.is_some() { return self; }
+        self.pathfinder.current_goal = goal;
+        self
+    }
+
+    pub fn overwrite_goal(&mut self, goal: Position) -> &mut Self {
+        self.reached_goal = None;
+        self.pathfinder.current_goal = goal;
+        self
+    }
+
+    pub fn reach_goal(&mut self, reached_goal: ReachedGoal) {
+        self.reached_goal = Some(reached_goal);
+    }
+
+    pub fn is_at(&self, position: Position) -> bool {
+        self.pathfinder.current_goal == position
     }
 }
 
@@ -117,10 +142,23 @@ pub fn pathfinder_update(
     map: Res<Map>,
     mut map_cache: ResMut<MapCache>,
     mut query: Query<(&mut BehaviorData<PathfinderBehavior>, &CharacterType, &CharacterData, &Position, &mut MovementInput)>,
-    search_query: Query<(&CharacterType, &CharacterData, &Position)>,
     mut collision_query: Query<&mut Collision>,
+    search_query: Query<(&CharacterType, &CharacterData, &Position)>,
 ) {
     for (mut pathfinder, character_type, character_data, position, mut movement_input) in query.iter_mut() {
+        if pathfinder.behavior.is_at(position.clone()) {
+            // We have reached our goal,
+            // forget the path whence we came.
+            if let Some(reached_goal) = pathfinder.behavior.reached_goal {
+                reached_goal(ReachedGoalParams {
+                    map: &map,
+                    character_type: &character_type,
+                    character_data: &character_data,
+                    position: &position,
+                });
+                pathfinder.behavior.reached_goal = None;
+            }
+        }
         *movement_input = if pathfinder.check_conditions() {
             if pathfinder.behavior.skip_turn.check() {
                 (pathfinder.behavior.target)(
@@ -128,7 +166,7 @@ pub fn pathfinder_update(
                     &map,
                     &mut map_cache,
                     character_type,
-                    character_data,
+                    &character_data,
                     position,
                     &search_query,
                 );

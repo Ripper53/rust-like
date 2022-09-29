@@ -1,5 +1,5 @@
 use bevy::prelude::World;
-use common::physics::{Map, Tile, Position, MapCache};
+use common::{physics::{Map, Tile, Position, MapCache}, behaviors::pathfinder::lerain::POINTS};
 use tui::{widgets::{Widget, Paragraph, Block, Borders}, style::{Style, Color}, text::{Span, Spans}};
 
 pub struct MapCanvas<'a> {
@@ -8,6 +8,7 @@ pub struct MapCanvas<'a> {
     pub vision_position: Position,
 }
 
+const DEBUG: bool = true;
 impl<'a> Widget for MapCanvas<'a> {
     fn render(self, area: tui::layout::Rect, buf: &mut tui::buffer::Buffer) {
         fn get_center_coordinate(map_size: usize, screen_size: usize, target: usize) -> usize {
@@ -55,28 +56,34 @@ impl<'a> Widget for MapCanvas<'a> {
             for x in start_x..size_x {
                 let y = size_y - 1 - y;
                 if let Some(tile) = map.get(x, y) {
-                    let character = if /*in_vision.contains(&Position::new(x as i32, y as i32))*/ true {
-                        match tile {
-                            Tile::Ground { occupier, .. } => {
-                                if let Some(occupier) = occupier {
-                                    Span::raw(occupier.sprite.character.to_string())
-                                } else {
-                                    Span::raw(" ")
-                                }
-                            },
-                            Tile::Wall => Span::raw("#"),
-                            Tile::Obstacle { occupier } => {
-                                if let Some(occupier) = occupier {
-                                    Span::raw(occupier.sprite.character.to_string())
-                                } else {
-                                    Span::raw("%")
-                                }
-                            },
-                        }
+                    if DEBUG && POINTS.contains(&Position::new(x as i32, y as i32)) {
+                        let character = Span::raw("0");
+                        t.push(character);
                     } else {
-                        Span::styled("X", Style::default().fg(Color::DarkGray))
-                    };
-                    t.push(character);
+                        let character = if /*in_vision.contains(&Position::new(x as i32, y as i32))*/ true {
+                            match tile {
+                                Tile::Ground { occupier, .. } => {
+                                    if let Some(occupier) = occupier {
+                                        Span::raw(occupier.sprite.character.to_string())
+                                    } else {
+                                        Span::raw(" ")
+                                    }
+                                },
+                                Tile::Wall => Span::raw("#"),
+                                Tile::Obstacle { occupier } => {
+                                    if let Some(occupier) = occupier {
+                                        Span::raw(occupier.sprite.character.to_string())
+                                    } else {
+                                        Span::raw("%")
+                                    }
+                                },
+                            }
+                        } else {
+                            Span::styled("X", Style::default().fg(Color::DarkGray))
+                        };
+                        t.push(character);
+                    }
+
                 }
             }
             text.push(Spans::from(t));
