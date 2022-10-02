@@ -5,7 +5,7 @@ use crate::{
     character::{CharacterType, CharacterData},
     map_brain::{CharacterBehaviorData, HumanState, NewObjective},
 };
-use super::{PathfinderBehavior, util::get_pathfinder_target};
+use super::{PathfinderBehavior, util::get_pathfinder_target, data::PathfinderGlobalData};
 
 fn set_goal<'a>(state: &'a mut HumanState, behavior: &'a mut PathfinderBehavior, goal: (Position, usize)) {
     *state = HumanState::Moving(goal.1);
@@ -23,6 +23,7 @@ fn force_goal<'a>(state: &'a mut HumanState, behavior: &'a mut PathfinderBehavio
 }
 
 pub fn lerain_pathfinder(
+    data: &PathfinderGlobalData,
     behavior: &mut PathfinderBehavior,
     map: &Map,
     map_cache: &mut MapCache,
@@ -49,12 +50,11 @@ pub fn lerain_pathfinder(
                         if let Some(krill_theater) = tile.krill_theater() {
                             match krill_theater {
                                 KrillTheaterZone::Free => {
-                                    set_goal(state, behavior, get_target());
+                                    set_goal(state, behavior, data.get_target(super::data::CharacterType::Lerain));
                                 },
                                 KrillTheaterZone::LineUp(target) => {
-                                    if let Some(index) = EXIT_POSITION.iter().position(|p| p.0 == *position) {
-                                        let target = EXIT_POSITION[index];
-                                        force_goal(state, behavior, (target.1, index)).reach_goal(
+                                    if let Some((target, index)) = data.is_exit_point(*position) {
+                                        force_goal(state, behavior, (target, index)).reach_goal(
                                             |params| {
                                                 if let CharacterBehaviorData::Human { state } = params.character_behavior_data {
                                                     if let HumanState::Moving(index) = state {
@@ -71,12 +71,12 @@ pub fn lerain_pathfinder(
                         } else if let Some(o) = objective {
                             match o {
                                 NewObjective::WanderButExclude(index) => {
-                                    let goal = get_target_except(*index);
+                                    let goal = data.get_target_except(super::data::CharacterType::Lerain, *index);
                                     set_goal(state, behavior, goal);
                                 },
                             }
                         } else {
-                            set_goal(state, behavior, get_target());
+                            set_goal(state, behavior, data.get_target(super::data::CharacterType::Lerain));
                         }
                     }
                 }
@@ -85,34 +85,4 @@ pub fn lerain_pathfinder(
             HumanState::Panic => {},
         }
     }
-}
-
-pub const POINTS: [Position; 3] = [
-    Position::new(110, 42),
-    Position::new(69, 10),
-    Position::new(151, 10),
-];
-
-const EXIT_POSITION: [(Position, Position); 3] = [
-    (POINTS[0], Position::new(110, 45)),
-    (POINTS[1], Position::new(69, 7)),
-    (POINTS[2], Position::new(151, 7)),
-];
-
-fn get_target() -> (Position, usize) {
-    let i = rand::thread_rng().gen_range(0..POINTS.len());
-    (POINTS[i], i)
-}
-
-fn get_target_except(exclude_index: usize) -> (Position, usize) {
-    const LENGTH: usize = POINTS.len();
-    let mut i = rand::thread_rng().gen_range(0..LENGTH);
-    if i == exclude_index {
-        if i == LENGTH - 1 {
-            i = 0;
-        } else {
-            i += 1;
-        }
-    }
-    (POINTS[i], i)
 }

@@ -1,8 +1,9 @@
 use bevy::prelude::Query;
 use crate::{physics::{Map, MapCache, Position}, character::{CharacterType, CharacterData}, map_brain::CharacterBehaviorData};
-use super::{PathfinderBehavior, util::{get_random_target, get_pathfinder_target}};
+use super::{PathfinderBehavior, util::{get_random_target, get_pathfinder_target}, data::PathfinderGlobalData};
 
 pub fn rumdare_pathfinder(
+    data: &PathfinderGlobalData,
     mut behavior: &mut PathfinderBehavior,
     map: &Map,
     map_cache: &mut MapCache,

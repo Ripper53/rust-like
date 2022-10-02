@@ -2,6 +2,7 @@ pub mod util;
 pub mod lerain;
 pub mod rumdare;
 pub mod werewolf;
+pub mod data;
 
 use bevy::prelude::{Query, Res, ResMut};
 use pathfinding::prelude::astar;
@@ -10,6 +11,8 @@ use crate::{
     character::{CharacterType, CharacterData, MovementInput},
     map_brain::{BehaviorData, CharacterBehaviorData},
 };
+
+use self::data::PathfinderGlobalData;
 
 #[derive(Default)]
 struct Pathfinder {
@@ -47,6 +50,7 @@ pub struct ReachedGoalParams<'a> {
     pub position: &'a Position,
 }
 type GetTarget = fn(
+    &PathfinderGlobalData,
     &mut PathfinderBehavior,
     &Map,
     &mut MapCache,
@@ -143,6 +147,7 @@ impl Position {
 pub fn pathfinder_update(
     map: Res<Map>,
     mut map_cache: ResMut<MapCache>,
+    pathfinder_global_data: Res<PathfinderGlobalData>,
     mut query: Query<(
         &mut BehaviorData<PathfinderBehavior>,
         &CharacterType,
@@ -172,6 +177,7 @@ pub fn pathfinder_update(
         *movement_input = if pathfinder.check_conditions() {
             if pathfinder.behavior.skip_turn.check() {
                 (pathfinder.behavior.target)(
+                    &pathfinder_global_data,
                     &mut pathfinder.behavior,
                     &map,
                     &mut map_cache,

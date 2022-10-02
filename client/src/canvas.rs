@@ -1,5 +1,5 @@
 use bevy::prelude::World;
-use common::{physics::{Map, Tile, Position, MapCache}, behaviors::pathfinder::lerain::POINTS};
+use common::{physics::{Map, Tile, Position, MapCache}, behaviors::pathfinder::data::PathfinderGlobalData};
 use tui::{widgets::{Widget, Paragraph, Block, Borders}, style::{Style, Color}, text::{Span, Spans}};
 
 pub struct MapCanvas<'a> {
@@ -51,12 +51,13 @@ impl<'a> Widget for MapCanvas<'a> {
         let mut text = Vec::<Spans>::with_capacity(size_y);
         //let mut map_cache = self.world.resource_mut::<MapCache>();
         //let in_vision = map.get_in_vision(&mut MapCache::default(), self.vision_position);
+        let pathfinder_data = self.world.resource::<PathfinderGlobalData>();
         for y in start_y..size_y {
             let mut t = Vec::<Span>::with_capacity(size_x);
             for x in start_x..size_x {
                 let y = size_y - 1 - y;
                 if let Some(tile) = map.get(x, y) {
-                    if DEBUG && POINTS.contains(&Position::new(x as i32, y as i32)) {
+                    if DEBUG && pathfinder_data.contains_point(Position::new(x as i32, y as i32)) {
                         let character = Span::raw("0");
                         t.push(character);
                     } else {
