@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 use bevy::prelude::Query;
 use rand::Rng;
 use crate::{physics::{Map, MapCache, Position}, character::{CharacterType, CharacterData, WereForm}};
-use super::{PathfinderBehavior};
+use super::PathfinderBehavior;
 
 pub fn get_pathfinder_target(
     pathfinder: &mut PathfinderBehavior,

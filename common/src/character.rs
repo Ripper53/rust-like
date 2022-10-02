@@ -122,23 +122,12 @@ pub enum WereForm {
 }
 #[derive(Component, Debug)]
 pub enum CharacterData {
-    Human {
-        state: HumanState,
-    },
+    Human,
     Werewolf {
         form: WereForm,
     },
 }
-impl CharacterData {
-    pub const fn default_human() -> Self {
-        CharacterData::Human { state: HumanState::Idle }
-    }
-}
-#[derive(Debug)]
-pub enum HumanState {
-    Idle,
-    Left,
-}
+
 impl PartialEq for CharacterType {
     fn eq(&self, other: &Self) -> bool {
         match self {

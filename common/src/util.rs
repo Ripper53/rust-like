@@ -27,7 +27,7 @@ use crate::{
         },
         werewolf::WerewolfBehavior,
     },
-    constants::HUMAN_CHARACTER,
+    constants::HUMAN_CHARACTER, map_brain::CharacterBehaviorData,
 };
 
 fn spawn_character(
@@ -59,9 +59,10 @@ pub fn spawn_lerain(commands: &mut Commands, map: &mut Map, position: Position) 
         position,
         Health::new(1),
         CharacterType::Lerain,
-        CharacterData::default_human(),
+        CharacterData::Human,
         |mut entity_commands| {
             entity_commands
+                .insert(CharacterBehaviorData::default_human())
                 .insert(PathfinderBehavior::new(1, lerain_pathfinder));
         },
     )
@@ -75,9 +76,10 @@ pub fn spawn_rumdare(commands: &mut Commands, map: &mut Map, position: Position)
         position,
         Health::new(1),
         CharacterType::Rumdare,
-        CharacterData::default_human(),
+        CharacterData::Human,
         |mut entity_commands| {
             entity_commands
+                .insert(CharacterBehaviorData::default_human())
                 .insert(PathfinderBehavior::new(1, rumdare_pathfinder));
         },
     );

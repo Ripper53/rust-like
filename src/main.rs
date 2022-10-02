@@ -10,12 +10,12 @@ fn setup(mut commands: Commands, mut map: ResMut<Map>) {
         Position::new(50, 2),
         Health::new(1),
         CharacterType::Player,
-        CharacterData::default_human(), // TODO!
+        CharacterData::Human,
         |mut entity_commands| {
             entity_commands.insert(PlayerTag);
         },
     );
-    spawn_lerain(&mut commands, &mut map, Position::new(2, 1));
+    spawn_lerain(&mut commands, &mut map, Position::new(50, 8));
     //spawn_lerain(&mut commands, &mut map, Position::new(20, 40));
     //spawn_lerain(&mut commands, &mut map, Position::new(30, 10));
     //spawn_lerain(&mut commands, &mut map, Position::new(25, 20));

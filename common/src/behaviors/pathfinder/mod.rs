@@ -8,7 +8,7 @@ use pathfinding::prelude::astar;
 use crate::{
     physics::{Map, Position, Collision, Tile, CollisionType, MapCache},
     character::{CharacterType, CharacterData, MovementInput},
-    map_brain::BehaviorData,
+    map_brain::{BehaviorData, CharacterBehaviorData},
 };
 
 #[derive(Default)]
@@ -43,6 +43,7 @@ pub struct ReachedGoalParams<'a> {
     pub map: &'a Map,
     pub character_type: &'a CharacterType,
     pub character_data: &'a CharacterData,
+    pub character_behavior_data: &'a mut CharacterBehaviorData,
     pub position: &'a Position,
 }
 type GetTarget = fn(
@@ -51,6 +52,7 @@ type GetTarget = fn(
     &mut MapCache,
     &CharacterType,
     &CharacterData,
+    &mut CharacterBehaviorData,
     &Position,
     &Query<(&CharacterType, &CharacterData, &Position)>,
 );
@@ -83,7 +85,7 @@ impl PathfinderBehavior {
         self
     }
 
-    pub fn overwrite_goal(&mut self, goal: Position) -> &mut Self {
+    pub fn force_goal(&mut self, goal: Position) -> &mut Self {
         self.reached_goal = None;
         self.pathfinder.current_goal = goal;
         self
@@ -141,11 +143,18 @@ impl Position {
 pub fn pathfinder_update(
     map: Res<Map>,
     mut map_cache: ResMut<MapCache>,
-    mut query: Query<(&mut BehaviorData<PathfinderBehavior>, &CharacterType, &CharacterData, &Position, &mut MovementInput)>,
+    mut query: Query<(
+        &mut BehaviorData<PathfinderBehavior>,
+        &CharacterType,
+        &CharacterData,
+        &mut CharacterBehaviorData,
+        &Position,
+        &mut MovementInput,
+    )>,
     mut collision_query: Query<&mut Collision>,
     search_query: Query<(&CharacterType, &CharacterData, &Position)>,
 ) {
-    for (mut pathfinder, character_type, character_data, position, mut movement_input) in query.iter_mut() {
+    for (mut pathfinder, character_type, character_data, mut character_behavior_data, position, mut movement_input) in query.iter_mut() {
         if pathfinder.behavior.is_at(position.clone()) {
             // We have reached our goal,
             // forget the path whence we came.
@@ -153,6 +162,7 @@ pub fn pathfinder_update(
                 reached_goal(ReachedGoalParams {
                     map: &map,
                     character_type: &character_type,
+                    character_behavior_data: &mut character_behavior_data,
                     character_data: &character_data,
                     position: &position,
                 });
@@ -166,7 +176,8 @@ pub fn pathfinder_update(
                     &map,
                     &mut map_cache,
                     character_type,
-                    &character_data,
+                    character_data,
+                    &mut character_behavior_data,
                     position,
                     &search_query,
                 );
