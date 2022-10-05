@@ -148,7 +148,7 @@ impl Map {
     pub fn get_size_y(&self) -> usize {
         self.size_y
     }
-    pub fn spawn<F: Fn(EntityCommands)>(
+    pub fn spawn<F: FnOnce(EntityCommands)>(
         &mut self,
         commands: &mut Commands,
         sprite: crate::character::Sprite,
@@ -195,11 +195,11 @@ impl Map {
                     character_type,
                     character_data,
                     action_history: ActionHistory::new(60),
-                    inventory: Inventory {
-                        items: vec![
+                    inventory: Inventory::new(
+                        vec![
                             Box::new(Item::new_pistol()),
                         ],
-                    },
+                    ),
                     equipment: Equipment::default(),
                     collision: Collision::new(CollisionType::Solid),
                 });
@@ -376,7 +376,7 @@ impl std::ops::Mul<i32> for Position {
     }
 }
 
-#[derive(Clone, Component)]
+#[derive(Default, Clone, Component)]
 pub struct Velocity {
     pub movement: MovementInput,
     pub speed: i32,

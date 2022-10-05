@@ -16,7 +16,7 @@ use crate::{
         Health,
         MovementInput,
         Interact,
-        CharacterData,
+        CharacterData, LootableTag,
     },
     behaviors::{
         pathfinder::{
@@ -27,7 +27,7 @@ use crate::{
         },
         werewolf::WerewolfBehavior,
     },
-    constants::HUMAN_CHARACTER, map_brain::CharacterBehaviorData,
+    constants::HUMAN_CHARACTER, map_brain::CharacterBehaviorData, inventory::Inventory,
 };
 
 fn spawn_character(
@@ -124,6 +124,26 @@ pub fn spawn_projectile(
                     damage,
                 }))
                 .insert(Collision::new(CollisionType::Sensor));
+        },
+    );
+}
+
+pub fn spawn_chest(
+    commands: &mut Commands,
+    map: &mut Map,
+    position: Position,
+    inventory: Inventory,
+) {
+    map.spawn(
+        commands,
+        Sprite::new('M'),
+        position,
+        Velocity::default(),
+        CollisionType::Solid,
+        |mut entity_commands| {
+            entity_commands
+                .insert(LootableTag)
+                .insert(inventory);
         },
     );
 }

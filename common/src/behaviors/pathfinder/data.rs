@@ -2,6 +2,8 @@ use bevy::prelude::FromWorld;
 use rand::Rng;
 use crate::physics::Position;
 
+// TODO: MAKE OBJECTIVES CLOSER TO
+// NPC MORE LIKELY TO OCCUR!
 pub struct PathfinderGlobalData {
     points: [Vec<Position>; 2],
     krill_exit_points: [Position; 3],

@@ -1,6 +1,6 @@
-use std::collections::VecDeque;
+use std::{collections::VecDeque, default};
 use bevy::prelude::*;
-use crate::{physics::*, dialogue::{Dialogue, DialogueOption}, inventory::{Equipment, Inventory}};
+use crate::{physics::*, dialogue::{Dialogue, DialogueOption}, inventory::{Equipment, Inventory}, PlayerState};
 
 #[derive(Component)]
 pub struct PlayerTag;
@@ -153,8 +153,9 @@ impl From<&CharacterType> for Interact {
     }
 }
 
-#[derive(Component, Debug, Clone, Copy)]
+#[derive(Default, Component, Debug, Clone, Copy)]
 pub enum MovementInput {
+    #[default]
     Idle,
     North,
     East,
@@ -386,6 +387,7 @@ pub struct LootableTag;
 pub fn interact_update(
     mut query: Query<&mut Interact>,
     mut commands: Commands,
+    mut player_state: ResMut<PlayerState>,
     mut map: ResMut<Map>,
     mut dialogue: ResMut<Dialogue>,
 
@@ -398,14 +400,17 @@ pub fn interact_update(
             match interact.data {
                 InteractData::Player => {
                     if let Ok(_character_type) = character_type_query.get(info.other_entity) {
-                        dialogue.activate("Bruh".to_string(), vec![
+                        *player_state = dialogue.activate(*player_state, "Bruh".to_string(), vec![
                             ("Option 1".to_string(), DialogueOption::Leave),
                             ("Option 2".to_string(), DialogueOption::Leave),
                             ("Option 3".to_string(), DialogueOption::Leave),
                         ]);
                     }
-                    if let Ok(_lootable_inventory) = lootable_query.get(info.other_entity) {
-                        dialogue.activate("LOOTABLE INVENTORY".to_string(), vec![("Option 1".to_string(), DialogueOption::Leave)]);
+                    if let Ok(lootable_inventory) = lootable_query.get(info.other_entity) {
+                        for item in lootable_inventory.items() {
+                            // TODO: DISPLAY LIST!
+                        }
+                        *player_state = dialogue.activate(*player_state, "LOOTABLE INVENTORY".to_string(), vec![("Option 1".to_string(), DialogueOption::Leave)]);
                     }
                 },
                 InteractData::Lerain | InteractData::Rumdare | InteractData::Werewolf => {},

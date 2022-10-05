@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use client::render::*;
-use common::{physics::*, character::*, dialogue::Dialogue, inventory::inventory_update, util::{spawn_lerain, spawn_werewolf}, ActionInput, Scene, behaviors::pathfinder::data::PathfinderGlobalData};
+use common::{physics::*, character::*, dialogue::Dialogue, inventory::{inventory_update, Inventory, Item}, util::{spawn_lerain, spawn_werewolf, spawn_chest}, ActionInput, Scene, behaviors::pathfinder::data::PathfinderGlobalData, PlayerState};
 use iyes_loopless::condition::IntoConditionalExclusiveSystem;
 
 fn setup(mut commands: Commands, mut map: ResMut<Map>) {
@@ -20,10 +20,22 @@ fn setup(mut commands: Commands, mut map: ResMut<Map>) {
     //spawn_lerain(&mut commands, &mut map, Position::new(30, 10));
     //spawn_lerain(&mut commands, &mut map, Position::new(25, 20));
     //spawn_werewolf(&mut commands, &mut map, Position::new(2, 4));
+    
+    spawn_chest(&mut commands, &mut map, Position::new(50, 10), Inventory::new(
+        vec![
+            Box::new(Item::new_apple()),
+            Box::new(Item::new_banana()),
+            Box::new(Item::new_apple()),
+        ],
+    ));
 }
 
-fn in_conversation_condition(dialogue: Res<Dialogue>) -> bool {
-    dialogue.in_conversation
+fn pause_main_game(player_state: Res<PlayerState>) -> bool {
+    match *player_state {
+        PlayerState::Dialogue |
+        PlayerState::Looting => true,
+        PlayerState::None => false,
+    }
 }
 
 fn main() {
@@ -41,6 +53,7 @@ fn main() {
     App::new()
         .set_runner(runner)
         .add_state(Scene::Map)
+        .insert_resource(PlayerState::default())
         .init_resource::<PlayerInput>()
         .insert_resource(ActionInput::None)
         .insert_resource(Dialogue::default())
@@ -52,49 +65,49 @@ fn main() {
         .add_system_set(SystemSet::on_update(Scene::Map)
             .with_system(
                 inventory_update
-                    .run_if_not(in_conversation_condition)
+                    .run_if_not(pause_main_game)
                     .label(INVENTORY_LABEL)
             )
             .with_system(
                 player_movement_input_update
-                    .run_if_not(in_conversation_condition)
+                    .run_if_not(pause_main_game)
                     .label(PLAYER_INPUT_LABEL)
                     .after(INVENTORY_LABEL)
             )
             .with_system(
                 player_movement_update
-                    .run_if_not(in_conversation_condition)
+                    .run_if_not(pause_main_game)
                     .label(PLAYER_MOVEMENT_LABEL)
                     .after(PLAYER_INPUT_LABEL)
             )
             .with_system(
                 common::behaviors::pathfinder::pathfinder_update
                 .chain(common::behaviors::werewolf::werewolf_update)
-                .run_if_not(in_conversation_condition)
+                .run_if_not(pause_main_game)
                 .label(NPC_BEHAVIOR_UPDATE_LABEL)
                 .after(PLAYER_MOVEMENT_LABEL)
             )
             .with_system(
                 npc_movement_update
-                    .run_if_not(in_conversation_condition)
+                    .run_if_not(pause_main_game)
                     .label(NPC_MOVEMENT_UPDATE_LABEL)
                     .after(NPC_BEHAVIOR_UPDATE_LABEL)
             )
             .with_system(
                 collision_update
-                    .run_if_not(in_conversation_condition)
+                    .run_if_not(pause_main_game)
                     .label(COLLISION_UPDATE_LABEL)
                     .after(NPC_MOVEMENT_UPDATE_LABEL),
             )
             .with_system(
                 interact_update
-                    .run_if_not(in_conversation_condition)
+                    .run_if_not(pause_main_game)
                     .label(INTERACT_UPDATE_LABEL)
                     .after(COLLISION_UPDATE_LABEL)
             )
             .with_system(
                 destroy_check_update
-                    .run_if_not(in_conversation_condition)
+                    .run_if_not(pause_main_game)
                     .label(DESTORY_CHECK_LABEL)
                     .after(INTERACT_UPDATE_LABEL)
             )
@@ -103,7 +116,7 @@ fn main() {
         .add_system_set(SystemSet::on_update(Scene::Inventory)
             .with_system(
                 inventory_update
-                    .run_if_not(in_conversation_condition)
+                    .run_if_not(pause_main_game)
                     .label(INVENTORY_LABEL)
             )
         )

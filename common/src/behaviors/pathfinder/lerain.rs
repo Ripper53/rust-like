@@ -1,4 +1,5 @@
 use bevy::prelude::Query;
+use pathfinding::prelude::directions::N;
 use crate::{
     physics::{Map, MapCache, Position, KrillTheaterZone},
     character::{CharacterType, CharacterData},
@@ -56,12 +57,28 @@ pub fn lerain_pathfinder(
                                     behavior.set_goal(*target, Priority::Low);
                                 },
                                 KrillTheaterZone::Exit => {
-                                    set_goal(
-                                        state,
-                                        behavior,
-                                        data.get_target(super::data::CharacterType::Lerain),
-                                        Priority::Medium,
-                                    );
+                                    if let Some(objective) = objective {
+                                        let index: Option<usize> = if let NewObjective::WanderButExclude(i) = objective {
+                                            Some(*i)
+                                        } else {
+                                            None
+                                        };
+                                        if let Some(index) = index {
+                                            set_goal(
+                                                state,
+                                                behavior,
+                                                data.get_target_except(super::data::CharacterType::Lerain, index),
+                                                Priority::Medium,
+                                            );
+                                        }
+                                    } else {
+                                        set_goal(
+                                            state,
+                                            behavior,
+                                            data.get_target(super::data::CharacterType::Lerain),
+                                            Priority::Medium,
+                                        );
+                                    }
                                 },
                             }
                         } else if let Some(o) = objective {

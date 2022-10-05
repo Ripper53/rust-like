@@ -1,7 +1,7 @@
 use std::{time::{Duration, Instant}, thread, sync::mpsc::Receiver};
 
 use bevy::prelude::{App, ResMut, Query, With, CoreStage, State};
-use common::{physics::*, character::{PlayerInput, MovementInput, PlayerTag, ActionHistory, Health}, dialogue::Dialogue, inventory::{Inventory, Equipment}, ActionInput, Scene};
+use common::{physics::*, character::{PlayerInput, MovementInput, PlayerTag, ActionHistory, Health}, dialogue::Dialogue, inventory::{Inventory, Equipment}, ActionInput, Scene, PlayerState};
 use crossterm::{
     terminal::enable_raw_mode, event, execute,
 };
@@ -102,7 +102,8 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
         terminal.draw(|rect| {
             const MARGIN: u16 = 2;
             // Layout
-            let dialogue = app.world.resource::<Dialogue>();
+            let player_state = app.world.resource::<PlayerState>();
+            //let dialogue = app.world.resource::<Dialogue>();
             let top_layout = Layout::default()
                 .direction(tui::layout::Direction::Horizontal)
                 .margin(MARGIN)
@@ -123,30 +124,58 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                 .constraints([
                     Constraint::Length(3),
                     Constraint::Min(3),
-                    Constraint::Length(if dialogue.in_conversation { 6 } else { 0 }),
-                    Constraint::Length(if dialogue.in_conversation { 6 } else { 0 }),
+                    Constraint::Length(match player_state {
+                        PlayerState::Dialogue |
+                        PlayerState::Looting => 12,
+                        PlayerState::None => 0,
+                    }),
                 ])
                 .split(top_layout[0]);
+            let state_layout = Layout::default()
+                .direction(match player_state {
+                    PlayerState::Dialogue => tui::layout::Direction::Vertical,
+                    PlayerState::Looting => tui::layout::Direction::Horizontal,
+                    PlayerState::None => tui::layout::Direction::Vertical,
+                })
+                .constraints([
+                    Constraint::Length(match player_state {
+                        PlayerState::Dialogue => 6,
+                        PlayerState::Looting => 6,
+                        PlayerState::None => 0,
+                    }),
+                    Constraint::Length(match player_state {
+                        PlayerState::Dialogue => 6,
+                        PlayerState::Looting => 6,
+                        PlayerState::None => 0,
+                    }),
+                ])
+                .split(main_layout[2]);
 
             // Main View
             match &active_menu_item {
                 Menu::World => {
                     let dialogue = app.world.resource::<Dialogue>();
-                    if dialogue.in_conversation {
-                        let p = Paragraph::new(dialogue.text.to_string())
-                            .block(Block::default().borders(Borders::TOP | Borders::RIGHT | Borders::LEFT).title("Dialogue"));
-                        rect.render_widget(p, main_layout[2]);
+                    match player_state {
+                        PlayerState::Dialogue => {
+                            let p = Paragraph::new(dialogue.text.to_string())
+                                .block(Block::default().borders(Borders::TOP | Borders::RIGHT | Borders::LEFT).title("Dialogue"));
+                            rect.render_widget(p, state_layout[0]);
 
-                        let mut options_items = Vec::<ListItem>::with_capacity(dialogue.options.len());
-                        for (text, _) in &dialogue.options {
-                            options_items.push(ListItem::new(Text::raw(text)));
-                        }
-                        let options = List::new(options_items)
-                            .block(Block::default().borders(Borders::ALL).title("Options"))
-                            .highlight_symbol(">");
-                        let mut active = ListState::default();
-                        active.select(Some(dialogue.active));
-                        rect.render_stateful_widget(options, main_layout[3], &mut active);
+                            let mut options_items = Vec::<ListItem>::with_capacity(dialogue.options.len());
+                            for (text, _) in &dialogue.options {
+                                options_items.push(ListItem::new(Text::raw(text)));
+                            }
+                            let options = List::new(options_items)
+                                .block(Block::default().borders(Borders::ALL).title("Options"))
+                                .highlight_symbol(">");
+                            let mut active = ListState::default();
+                            active.select(Some(dialogue.active));
+                            rect.render_stateful_widget(options, state_layout[1], &mut active);
+                        },
+                        PlayerState::Looting => {
+                            
+                        },
+                        PlayerState::None => {},
                     }
                     let mut player_position_query = app.world.query_filtered::<&Position, With<PlayerTag>>();
                     if let Ok(position) = player_position_query.get_single(&app.world) {
@@ -163,8 +192,8 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                 Menu::Inventory => {
                     let mut query = app.world.query_filtered::<&Inventory, With<PlayerTag>>();
                     if let Ok(player_inventory) = query.get_single(&app.world) {
-                        let mut items = Vec::<ListItem>::with_capacity(player_inventory.items.len());
-                        for item in &player_inventory.items {
+                        let mut items = Vec::<ListItem>::with_capacity(player_inventory.items().len());
+                        for item in player_inventory.items() {
                             items.push(ListItem::new(Text::raw(item.get_name())));
                         }
                         let item_list = List::new(items)
@@ -248,8 +277,8 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                     match active_menu_item {
                         Menu::World => {
                             let set_player_input_movement = |app: &mut App, movement_input: MovementInput| {
-                                let dialogue = app.world.resource::<Dialogue>();
-                                if dialogue.in_conversation { return; }
+                                let player_state = app.world.resource::<PlayerState>();
+                                if !matches!(player_state, PlayerState::None) { return; }
                                 let mut player_input = app.world.resource_mut::<PlayerInput>();
                                 (*player_input).input_movement = movement_input;
                                 app.update();
@@ -258,8 +287,9 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                             };
                             match key.code {
                                 event::KeyCode::Up => {
-                                    let mut dialogue = app.world.resource_mut::<Dialogue>();
-                                    if dialogue.in_conversation {
+                                    let player_state = app.world.resource::<PlayerState>();
+                                    if matches!(player_state, PlayerState::Dialogue) {
+                                        let mut dialogue = app.world.resource_mut::<Dialogue>();
                                         dialogue.decrement();
                                     } else {
                                         set_player_input_movement(app, MovementInput::North);
@@ -267,17 +297,22 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                                 },
                                 event::KeyCode::Right => set_player_input_movement(app, MovementInput::East),
                                 event::KeyCode::Down => {
-                                    let mut dialogue = app.world.resource_mut::<Dialogue>();
-                                    if dialogue.in_conversation {
+                                    let player_state = app.world.resource::<PlayerState>();
+                                    if matches!(player_state, PlayerState::Dialogue) {
+                                        let mut dialogue = app.world.resource_mut::<Dialogue>();
                                         dialogue.increment();
                                     }
                                     set_player_input_movement(app, MovementInput::South);
                                 },
                                 event::KeyCode::Left => set_player_input_movement(app, MovementInput::West),
                                 event::KeyCode::Enter => {
-                                    let mut dialogue = app.world.resource_mut::<Dialogue>();
-                                    if dialogue.in_conversation {
-                                        dialogue.select();
+                                    let player_state = app.world.resource_mut::<PlayerState>();
+                                    if matches!(*player_state, PlayerState::Dialogue) {
+                                        let copied_player_state = player_state.clone();
+                                        let mut dialogue = app.world.resource_mut::<Dialogue>();
+                                        let new_player_state = dialogue.select(copied_player_state);
+                                        let mut player_state = app.world.resource_mut::<PlayerState>();
+                                        *player_state = new_player_state;
                                     }
                                 },
                                 event::KeyCode::Char(' ') => {
@@ -307,7 +342,7 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                                 },
                                 event::KeyCode::Down => {
                                     if let Ok(inventory) = app.world.query_filtered::<&Inventory, With<PlayerTag>>().get_single(&app.world) {
-                                        let item_count = inventory.items.len();
+                                        let item_count = inventory.items().len();
                                         let mut camera_data = app.world.resource_mut::<CameraData>();
                                         if let Some(current_value) = camera_data.selection.selected() {
                                             let new_value = current_value + 1;

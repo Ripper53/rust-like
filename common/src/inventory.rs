@@ -77,10 +77,13 @@ impl PartialEq for &Box<Item> {
 
 #[derive(Component, Default)]
 pub struct Inventory {
-    pub items: Vec<Box<Item>>,
+    items: Vec<Box<Item>>,
 }
 
 impl Inventory {
+    pub fn new(items: Vec<Box<Item>>) -> Self {
+        Inventory { items }
+    }
     pub fn get_index(&self, item: &Box<Item>) -> Option<usize> {
         for i in 0..self.items.len() {
             if &self.items[i] == item {
@@ -88,6 +91,17 @@ impl Inventory {
             }
         }
         None
+    }
+    pub fn add_item(&mut self, item: Box<Item>) {
+        // TODO? PERHAPS CHECK FOR DUPLICATE ITEMS!
+        // BECAUSE WE ARE NOT USING A SET!
+        self.items.push(item);
+    }
+    pub fn remove_item(&mut self, index: usize) -> Box<Item> {
+        self.items.remove(index)
+    }
+    pub fn items(&self) -> &Vec<Box<Item>> {
+        &self.items
     }
 }
 

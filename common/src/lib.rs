@@ -1,3 +1,5 @@
+use std::default;
+
 use bevy::prelude::SystemLabel;
 
 pub mod constants;
@@ -9,6 +11,7 @@ pub mod dialogue;
 pub mod inventory;
 pub mod util;
 pub mod behaviors;
+pub mod loot_menu;
 
 pub enum ActionInput {
     // Take no action.
@@ -23,4 +26,12 @@ pub enum Scene {
     Map,
     Inventory,
     Settings,
+}
+
+#[derive(Default, Clone, Copy)]
+pub enum PlayerState {
+    #[default]
+    None,
+    Dialogue,
+    Looting,
 }
