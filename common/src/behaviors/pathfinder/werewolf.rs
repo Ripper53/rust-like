@@ -39,7 +39,7 @@ pub fn werewolf_pathfinder(
                             }
                         },
                         WerewolfState::Panic => {
-                            behavior.set_goal(Position::new(0, 0)).reach_goal(|params| {
+                            behavior.set_goal(Position::new(0, 0), super::Priority::Low).reach_goal_then(|params| {
                                 if let CharacterBehaviorData::Werewolf { state } = params.character_behavior_data {
                                     
                                 }

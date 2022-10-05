@@ -1,4 +1,4 @@
-use std::{hash::Hash, collections::HashSet, slice::Iter};
+use std::{hash::Hash, collections::HashSet};
 use bevy::{
     ecs::system::EntityCommands,
     prelude::{Entity, Commands, World, FromWorld, Component},
@@ -6,7 +6,7 @@ use bevy::{
 use crate::{
     character::{CharacterBundle, Interact, CharacterType, Health, ActionHistory, MovementInput, CharacterData},
     map_setup::town,
-    inventory::{Equipment, Inventory, Item},
+    inventory::{Equipment, Inventory, Item}, behaviors::pathfinder::data::PathfinderGlobalData,
 };
 
 #[derive(Clone)]
@@ -20,6 +20,7 @@ pub enum Zone {
 pub enum KrillTheaterZone {
     Free,
     LineUp(Position),
+    Exit,
 }
 impl Tile {
     pub fn krill_theater(&self) -> Option<&KrillTheaterZone> {
@@ -299,9 +300,9 @@ impl Map {
     }
 }
 impl FromWorld for Map {
-    fn from_world(_world: &mut World) -> Self {
+    fn from_world(world: &mut World) -> Self {
         let mut map = Map::new::<60, 30>();
-        town(&mut map);
+        town(&mut map, world.resource::<PathfinderGlobalData>());
         map
     }
 }

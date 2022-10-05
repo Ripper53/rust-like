@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use client::render::*;
 use common::{physics::*, character::*, dialogue::Dialogue, inventory::inventory_update, util::{spawn_lerain, spawn_werewolf}, ActionInput, Scene, behaviors::pathfinder::data::PathfinderGlobalData};
-use iyes_loopless::{condition::IntoConditionalExclusiveSystem};
+use iyes_loopless::condition::IntoConditionalExclusiveSystem;
 
 fn setup(mut commands: Commands, mut map: ResMut<Map>) {
     map.spawn_character(
@@ -44,9 +44,9 @@ fn main() {
         .init_resource::<PlayerInput>()
         .insert_resource(ActionInput::None)
         .insert_resource(Dialogue::default())
-        .init_resource::<Map>()
-        .insert_resource(MapCache::default())
         .init_resource::<PathfinderGlobalData>()
+        .insert_resource(MapCache::default())
+        .init_resource::<Map>()
         .add_startup_system(setup)
 
         .add_system_set(SystemSet::on_update(Scene::Map)

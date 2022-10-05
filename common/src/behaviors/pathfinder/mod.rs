@@ -64,8 +64,22 @@ type ReachedGoal = fn(ReachedGoalParams);
 pub struct PathfinderBehavior {
     pathfinder: Pathfinder,
     target: GetTarget,
+    priority: Priority,
     skip_turn: SkipTurn,
     reached_goal: Option<ReachedGoal>,
+}
+#[derive(Debug, Clone, Copy)]
+pub enum Priority {
+    Low, Medium, High,
+}
+impl From<Priority> for u8 {
+    fn from(value: Priority) -> Self {
+        match value {
+            Priority::Low => 0,
+            Priority::Medium => 1,
+            Priority::High => 2,
+        }
+    }
 }
 
 impl PathfinderBehavior {
@@ -73,6 +87,7 @@ impl PathfinderBehavior {
         BehaviorData::new(PathfinderBehavior {
             pathfinder: Pathfinder::default(),
             target,
+            priority: Priority::Low,
             skip_turn: SkipTurn { count: 0, skip_at: skip },
             reached_goal: None,
         })
@@ -83,20 +98,19 @@ impl PathfinderBehavior {
         self.skip_turn.count = 0;
     }
 
-    pub fn set_goal(&mut self, goal: Position) -> &mut Self {
-        if self.reached_goal.is_some() { return self; }
-        self.pathfinder.current_goal = goal;
-        self
-    }
-
-    pub fn force_goal(&mut self, goal: Position) -> &mut Self {
+    pub fn set_goal(&mut self, goal: Position, priority: Priority) -> &mut Self {
+        if u8::from(self.priority) > priority.into() { return self; }
         self.reached_goal = None;
         self.pathfinder.current_goal = goal;
         self
     }
 
-    pub fn reach_goal(&mut self, reached_goal: ReachedGoal) {
+    pub fn reach_goal_then(&mut self, reached_goal: ReachedGoal) {
+        if self.reached_goal.is_some() { return; }
         self.reached_goal = Some(reached_goal);
+    }
+    pub fn reach_goal(&mut self) {
+        self.reach_goal_then(|_| {});
     }
 
     pub fn is_at(&self, position: Position) -> bool {

@@ -41,10 +41,10 @@ pub fn get_pathfinder_target(
         }
     }) {
         if found_target {
-            pathfinder.set_goal(target.clone());
+            pathfinder.set_goal(target.clone(), super::Priority::Low);
             true
         } else {
-            pathfinder.set_goal(position.clone());
+            pathfinder.set_goal(position.clone(), super::Priority::Low);
             false
         }
     } else {
@@ -55,5 +55,5 @@ pub fn get_pathfinder_target(
 pub fn get_random_target(map: &Map, pathfinder: &mut PathfinderBehavior) {
     let x = rand::thread_rng().gen_range(0..map.get_size_x() as i32);
     let y = rand::thread_rng().gen_range(0..map.get_size_y() as i32);
-    pathfinder.set_goal(Position::new(x, y));
+    pathfinder.set_goal(Position::new(x, y), super::Priority::Low);
 }

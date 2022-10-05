@@ -57,8 +57,9 @@ impl<'a> Widget for MapCanvas<'a> {
             for x in start_x..size_x {
                 let y = size_y - 1 - y;
                 if let Some(tile) = map.get(x, y) {
-                    if DEBUG && pathfinder_data.contains_point(Position::new(x as i32, y as i32)) {
-                        let character = Span::raw("0");
+                    let a = pathfinder_data.contains_point(Position::new(x as i32, y as i32));
+                    if DEBUG && a.is_some() {
+                        let character = Span::raw(a.unwrap().to_string());
                         t.push(character);
                     } else {
                         let character = if /*in_vision.contains(&Position::new(x as i32, y as i32))*/ true {

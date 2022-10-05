@@ -4,7 +4,7 @@ use crate::physics::Position;
 
 pub struct PathfinderGlobalData {
     points: [Vec<Position>; 2],
-    exit_points: [(Position, Position); 3],
+    krill_exit_points: [Position; 3],
 }
 
 pub enum CharacterType {
@@ -39,24 +39,26 @@ impl PathfinderGlobalData {
             },
         }
     }
-    pub fn is_exit_point(&self, position: Position) -> Option<(Position, usize)> {
-        if let Some(index) = self.exit_points.iter().position(|p| p.0 == position) {
-            Some((self.exit_points[index].1, index))
-        } else {
-            None
-        }
+    pub fn is_krill_exit(&self, position: &Position) -> bool {
+        self.krill_exit_points.contains(position)
     }
 
     /// DEBUG PURPOSES
-    pub fn contains_point(&self, position: Position) -> bool {
-        self.points.iter().find(|v| {
+    pub fn contains_point(&self, position: Position) -> Option<char> {
+        if self.points.iter().find(|v| {
             for p in v.iter() {
                 if *p == position {
                     return true;
                 }
             }
             false
-        }).is_some()
+        }).is_some() {
+            Some('0')
+        } else if self.krill_exit_points.contains(&position) {
+            Some('e')
+        } else {
+            None
+        }
     }
 }
 
@@ -70,16 +72,17 @@ impl FromWorld for PathfinderGlobalData {
             ],
             vec![
                 Position::new(3, 3),
+                Position::new(80, 60),
             ],
         ];
-        let exit_points = [
-            (points[0][0], Position::new(110, 45)),
-            (points[0][1], Position::new(69, 7)),
-            (points[0][2], Position::new(151, 7)),
+        let krill_exit_points = [
+            Position::new(111, 42),
+            Position::new(68, 10),
+            Position::new(150, 10),
         ];
         PathfinderGlobalData {
             points,
-            exit_points,
+            krill_exit_points,
         }
     }
 }

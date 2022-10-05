@@ -1,4 +1,4 @@
-use crate::physics::{Map, Tile, Position, Zone, KrillTheaterZone};
+use crate::{physics::{Map, Tile, Position, Zone, KrillTheaterZone}, behaviors::pathfinder::data::PathfinderGlobalData};
 
 impl Map {
     fn create_room<F: Fn(&mut Tile)>(&mut self, bottom_left: Position, top_right: Position, border_tile: Tile, place_tile: F) {
@@ -30,16 +30,24 @@ impl Map {
 }
 
 impl Map {
-    fn set_krill_theater_lineup(&mut self, x: usize, y: usize, position: Position) {
+    fn set_krill_theater_lineup(&mut self, x: usize, y: usize, position: Position, data: &PathfinderGlobalData) {
         if let Some(tile) = self.get_mut(x, y) {
+            let p = Position::new(x as i32, y as i32);
+            let z = if data.is_krill_exit(&p) {
+                KrillTheaterZone::Exit
+            } else {
+                KrillTheaterZone::LineUp(position)
+            };
             match tile {
-                Tile::Ground { zone, .. } => *zone = Zone::KrillTheater { zone: KrillTheaterZone::LineUp(position) },
+                Tile::Ground { zone, .. } => *zone = Zone::KrillTheater {
+                    zone: z,
+                },
                 _ => {},
             }
         }
     }
 }
-pub fn town(map: &mut Map) {
+pub fn town(map: &mut Map, data: &PathfinderGlobalData) {
     map.initialize::<220, 100>();
 
     fn home(map: &mut Map, bottom_left: Position, top_right: Position, zone: Zone) {
@@ -60,8 +68,8 @@ pub fn town(map: &mut Map) {
     }
 
     {
-        const MIN_HOME_POSITION: Position = Position { x: 60, y: 8 };
-        const MAX_HOME_POSITION: Position = Position { x: 160, y: 44 };
+        const MIN_HOME_POSITION: Position = Position::new(60, 8);
+        const MAX_HOME_POSITION: Position = Position::new(160, 44);
         const OFFSET: usize = 2;
         const MIN_POSITION_X: usize = MIN_HOME_POSITION.x as usize + OFFSET;
         const MAX_POSITION_X: usize = MAX_HOME_POSITION.x as usize - OFFSET;
@@ -74,7 +82,7 @@ pub fn town(map: &mut Map) {
             (MAX_POSITION_Y, Position::new(MIN_POSITION_X as i32, MAX_POSITION_Y as i32)),
         ] {
             for x in MIN_POSITION_X..=MAX_POSITION_X {
-                map.set_krill_theater_lineup(x, y.0, y.1);
+                map.set_krill_theater_lineup(x, y.0, y.1, data);
             }
         }
         for x in [
@@ -82,17 +90,33 @@ pub fn town(map: &mut Map) {
             (MAX_POSITION_X, Position::new(MAX_POSITION_X as i32, MAX_POSITION_Y as i32)),
         ] {
             for y in MIN_POSITION_Y..=MAX_POSITION_Y {
-                map.set_krill_theater_lineup(x.0, y, x.1);
+                map.set_krill_theater_lineup(x.0, y, x.1, data);
             }
         }
-        map.set_krill_theater_lineup(MAX_POSITION_X, MAX_POSITION_Y, Position::new(MIN_POSITION_X as i32, MAX_POSITION_Y as i32));
-        map.set_krill_theater_lineup(MIN_POSITION_X, MAX_POSITION_Y, Position::new(MIN_POSITION_X as i32, MIN_POSITION_Y as i32));
-        map.set_krill_theater_lineup(MIN_POSITION_X, MIN_POSITION_Y, Position::new(MAX_POSITION_X as i32, MIN_POSITION_Y as i32));
-        map.set_krill_theater_lineup(MAX_POSITION_X, MIN_POSITION_Y, Position::new(MAX_POSITION_X as i32, MAX_POSITION_Y as i32));
+        map.set_krill_theater_lineup(
+            MAX_POSITION_X, MAX_POSITION_Y,
+            Position::new(MIN_POSITION_X as i32, MAX_POSITION_Y as i32),
+            data,
+        );
+        map.set_krill_theater_lineup(
+            MIN_POSITION_X, MAX_POSITION_Y,
+            Position::new(MIN_POSITION_X as i32, MIN_POSITION_Y as i32),
+            data,
+        );
+        map.set_krill_theater_lineup(
+            MIN_POSITION_X, MIN_POSITION_Y,
+            Position::new(MAX_POSITION_X as i32, MIN_POSITION_Y as i32),
+            data,
+        );
+        map.set_krill_theater_lineup(
+            MAX_POSITION_X, MIN_POSITION_Y,
+            Position::new(MAX_POSITION_X as i32, MAX_POSITION_Y as i32),
+            data,
+        );
 
         const HOME_WIDTH: i32 = MAX_HOME_POSITION.x - MIN_HOME_POSITION.x;
-        const MIN_THEATER_POSITION: Position = Position { x: 4 + MIN_HOME_POSITION.x, y: 4 + MIN_HOME_POSITION.y };
-        const MAX_THEATER_POSITION: Position = Position { x: HOME_WIDTH - 4 + MIN_HOME_POSITION.x, y: 4 + 10 + MIN_HOME_POSITION.y };
+        const MIN_THEATER_POSITION: Position = Position::new(4 + MIN_HOME_POSITION.x, 4 + MIN_HOME_POSITION.y);
+        const MAX_THEATER_POSITION: Position = Position::new(HOME_WIDTH - 4 + MIN_HOME_POSITION.x, 4 + 10 + MIN_HOME_POSITION.y);
         home(
             map,
             MIN_THEATER_POSITION,
@@ -100,8 +124,8 @@ pub fn town(map: &mut Map) {
             Zone::KrillTheater { zone: KrillTheaterZone::Free },
         );
 
-        const MIN_KITCHEN_POSITION: Position = Position { x: 4 + MIN_HOME_POSITION.x, y: MAX_HOME_POSITION.y - 4 - 14 };
-        const MAX_KITCHEN_POSITION: Position = Position { x: MIN_HOME_POSITION.x + 20, y: MAX_HOME_POSITION.y - 4 };
+        const MIN_KITCHEN_POSITION: Position = Position::new(4 + MIN_HOME_POSITION.x, MAX_HOME_POSITION.y - 4 - 14);
+        const MAX_KITCHEN_POSITION: Position = Position::new(MIN_HOME_POSITION.x + 20, MAX_HOME_POSITION.y - 4);
         home(
             map,
             MIN_KITCHEN_POSITION,
@@ -120,8 +144,8 @@ pub fn town(map: &mut Map) {
             MAX_KITCHEN_POSITION - Position::new(5, 3),
         );
 
-        const MIN_INVENTORY_POSITION: Position = Position { x: MAX_HOME_POSITION.x - 4 - 30, y: MAX_HOME_POSITION.y - 4 - 10 };
-        const MAX_INVENTORY_POSITION: Position = Position { x: MAX_HOME_POSITION.x - 4, y: MAX_HOME_POSITION.y - 4 };
+        const MIN_INVENTORY_POSITION: Position = Position::new(MAX_HOME_POSITION.x - 4 - 30, MAX_HOME_POSITION.y - 4 - 10);
+        const MAX_INVENTORY_POSITION: Position = Position::new(MAX_HOME_POSITION.x - 4, MAX_HOME_POSITION.y - 4);
         home(
             map,
             MIN_INVENTORY_POSITION,
