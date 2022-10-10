@@ -1,16 +1,19 @@
-use bevy::prelude::Entity;
+use bevy::prelude::{App, Entity};
 
 use crate::inventory::Inventory;
 
+#[derive(Default)]
 pub struct LootMenu {
-    pub is_looting: bool,
-    /// Inventory entity, and item index.
-    pub items: Vec<(Entity, usize)>,
+    pub inventory: Option<Entity>,
 }
 
 impl LootMenu {
-    pub fn select(&self, from_inventory: (&mut Inventory, usize), to_inventory: &mut Inventory) {
-        let item = from_inventory.0.remove_item(from_inventory.1);
-        to_inventory.add_item(item);
+    pub fn select(&self, app: &mut App, from_inventory: (Entity, usize), to_inventory: Entity) {
+        if let Some(mut inventory) = app.world.entity_mut(from_inventory.0).get_mut::<Inventory>() {
+            let item = inventory.remove_item(from_inventory.1);
+            if let Some(mut inventory) = app.world.entity_mut(to_inventory).get_mut::<Inventory>() {
+                inventory.add_item(item);
+            }
+        }
     }
 }

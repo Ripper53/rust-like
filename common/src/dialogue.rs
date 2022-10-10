@@ -1,34 +1,27 @@
+use bevy::prelude::Entity;
 use crate::PlayerState;
 
 #[derive(Default)]
 pub struct Dialogue {
+    pub entity: Option<Entity>,
     pub text: String,
     pub options: Vec<(String, DialogueOption)>,
-    /// Active option index.
-    pub active: usize,
 }
 impl Dialogue {
-    pub fn activate(&mut self, current_player_state: PlayerState, text: String, options: Vec<(String, DialogueOption)>) -> PlayerState {
+    pub fn activate(&mut self, current_player_state: PlayerState, entity: Entity, text: String, options: Vec<(String, DialogueOption)>) -> PlayerState {
         if !matches!(current_player_state, PlayerState::None) { return current_player_state; }
+        self.entity = Some(entity);
         self.text = text;
         self.options = options;
-        self.active = 0;
         PlayerState::Dialogue
     }
-    pub fn increment(&mut self) {
-        if self.active != self.options.len() - 1 {
-            self.active += 1;
-        }
-    }
-    pub fn decrement(&mut self) {
-        if self.active != 0 {
-            self.active -= 1;
-        }
-    }
-    pub fn select(&mut self, current_player_state: PlayerState) -> PlayerState {
+    pub fn select(&mut self, current_player_state: PlayerState, active: usize) -> PlayerState {
         if !matches!(current_player_state, PlayerState::Dialogue) { return current_player_state; }
-        let option = self.options[self.active].1.clone();
-        option.execute(self, PlayerState::None);
+        if let Some(entity) = self.entity {
+            self.entity = None;
+            let option = self.options[active].1.clone();
+            option.execute(self, PlayerState::None, entity);
+        }
         PlayerState::None
     }
 }
@@ -41,11 +34,11 @@ pub enum DialogueOption {
     Info(String, Vec<(String, DialogueOption)>),
 }
 impl DialogueOption {
-    fn execute(&self, dialogue: &mut Dialogue, player_state: PlayerState) {
+    fn execute(&self, dialogue: &mut Dialogue, player_state: PlayerState, entity: Entity) {
         match self {
             DialogueOption::Leave => {},
             DialogueOption::Info(info, options) => {
-                dialogue.activate(player_state, info.to_owned(), options.to_owned());
+                dialogue.activate(player_state, entity, info.to_owned(), options.to_owned());
             },
         }
     }

@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, default};
 use bevy::prelude::*;
-use crate::{physics::*, dialogue::{Dialogue, DialogueOption}, inventory::{Equipment, Inventory}, PlayerState};
+use crate::{physics::*, dialogue::{Dialogue, DialogueOption}, inventory::{Equipment, Inventory}, PlayerState, loot_menu::LootMenu};
 
 #[derive(Component)]
 pub struct PlayerTag;
@@ -390,6 +390,7 @@ pub fn interact_update(
     mut player_state: ResMut<PlayerState>,
     mut map: ResMut<Map>,
     mut dialogue: ResMut<Dialogue>,
+    mut loot_menu: ResMut<LootMenu>,
 
     character_type_query: Query<&CharacterType>,
     mut health_query: Query<&mut Health>,
@@ -400,17 +401,16 @@ pub fn interact_update(
             match interact.data {
                 InteractData::Player => {
                     if let Ok(_character_type) = character_type_query.get(info.other_entity) {
-                        *player_state = dialogue.activate(*player_state, "Bruh".to_string(), vec![
+                        *player_state = dialogue.activate(*player_state, info.other_entity, "Bruh".to_string(), vec![
                             ("Option 1".to_string(), DialogueOption::Leave),
                             ("Option 2".to_string(), DialogueOption::Leave),
                             ("Option 3".to_string(), DialogueOption::Leave),
                         ]);
                     }
                     if let Ok(lootable_inventory) = lootable_query.get(info.other_entity) {
-                        for item in lootable_inventory.items() {
-                            // TODO: DISPLAY LIST!
-                        }
-                        *player_state = dialogue.activate(*player_state, "LOOTABLE INVENTORY".to_string(), vec![("Option 1".to_string(), DialogueOption::Leave)]);
+                        loot_menu.inventory = Some(info.other_entity);
+                        *player_state = PlayerState::Looting;
+                        //*player_state = dialogue.activate(*player_state, "LOOTABLE INVENTORY".to_string(), vec![("Option 1".to_string(), DialogueOption::Leave)]);
                     }
                 },
                 InteractData::Lerain | InteractData::Rumdare | InteractData::Werewolf => {},
