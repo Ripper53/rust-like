@@ -28,6 +28,16 @@ fn setup(mut commands: Commands, mut map: ResMut<Map>) {
             Box::new(Item::new_apple()),
         ],
     ));
+    spawn_chest(&mut commands, &mut map, Position::new(49, 10), Inventory::new(
+        vec![
+            Box::new(Item::new_apple()),
+            Box::new(Item::new_banana()),
+            Box::new(Item::new_apple()),
+            Box::new(Item::new_apple()),
+            Box::new(Item::new_banana()),
+            Box::new(Item::new_apple()),
+        ],
+    ));
 }
 
 fn pause_main_game(player_state: Res<PlayerState>) -> bool {
@@ -117,7 +127,6 @@ fn main() {
         .add_system_set(SystemSet::on_update(Scene::Inventory)
             .with_system(
                 inventory_update
-                    .run_if_not(pause_main_game)
                     .label(INVENTORY_LABEL)
             )
         )

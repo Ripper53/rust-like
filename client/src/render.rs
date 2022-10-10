@@ -1,7 +1,7 @@
 use std::{time::{Duration, Instant}, thread, sync::mpsc::Receiver};
 
-use bevy::prelude::{App, ResMut, Query, With, CoreStage, State, Entity};
-use common::{physics::*, character::{PlayerInput, MovementInput, PlayerTag, ActionHistory, Health}, dialogue::Dialogue, inventory::{Inventory, Equipment}, ActionInput, Scene, PlayerState, loot_menu::LootMenu};
+use bevy::prelude::{App, ResMut, Query, With, CoreStage, State, Entity, World};
+use common::{physics::*, character::{PlayerInput, MovementInput, PlayerTag, ActionHistory, Health}, dialogue::Dialogue, inventory::{Inventory, Equipment}, ActionInput, Scene, PlayerState, loot_menu::{LootMenu, transfer_item}};
 use crossterm::{
     terminal::enable_raw_mode, event, execute,
 };
@@ -70,7 +70,7 @@ impl From<&Menu> for usize {
 #[derive(Default)]
 pub struct CameraData {
     position: Position,
-    selection: ListState,
+    inventory_selection: ListState,
 }
 fn update_camera_system(mut camera: ResMut<CameraData>, query: Query<&Position, With<PlayerTag>>) {
     for position in query.iter() {
@@ -89,8 +89,14 @@ struct Data {
 }
 #[derive(Default)]
 struct MenuOption {
-    entity: Option<Entity>,
+    focus: Focus,
     index: usize,
+}
+#[derive(Default)]
+enum Focus {
+    Ours,
+    #[default]
+    Other,
 }
 impl MenuOption {
     fn increment(&mut self, count: usize) {
@@ -101,6 +107,36 @@ impl MenuOption {
     fn decrement(&mut self) {
         if self.index != 0 {
             self.index -= 1;
+        }
+    }
+    fn get_index(&self, count: usize) -> Option<usize> {
+        if count == 0 {
+            None
+        } else {
+            Some(self.index)
+        }
+    }
+    /// Makes sure index is not greater than count!
+    fn check(&mut self, count: usize) {
+        if  self.index >= count {
+            self.index = count - 1;
+        }
+    }
+    fn check_from_focus(&mut self, world: &mut World) {
+        match self.focus {
+            Focus::Ours => {
+                let mut player_inventory = world.query_filtered::<&Inventory, With<PlayerTag>>();
+                let player_inventory = player_inventory.single(world);
+                self.check(player_inventory.items().len());
+            },
+            Focus::Other => {
+                let loot_menu = world.resource::<LootMenu>();
+                if let Some(entity) = loot_menu.inventory {
+                    if let Some(inventory) = world.entity(entity).get::<Inventory>() {
+                        self.check(inventory.items().len());
+                    }
+                }
+            },
         }
     }
 }
@@ -201,16 +237,15 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                             let loot_menu = app.world.resource::<LootMenu>();
                             if let Some(loot_entity) = loot_menu.inventory {
                                 if let Some(inventory) = app.world.entity(loot_entity).get::<Inventory>() {
-                                    if data.active_option.entity.is_none() {
-                                        data.active_option.entity = Some(loot_entity);
-                                    }
-                                    // Unwrap because the if statement above checks if none!
-                                    let entity = data.active_option.entity.unwrap();
-
                                     // Lootable Inventory
-                                    let list = render_inventory(inventory, "Loot");
+                                    let loot_title = if matches!(data.active_option.focus, Focus::Other) {
+                                        "Loot [Focused]"
+                                    } else {
+                                        "Loot"
+                                    };
+                                    let list = render_inventory(inventory, loot_title);
                                     let mut active = ListState::default();
-                                    active.select(if loot_entity == entity {
+                                    active.select(if matches!(data.active_option.focus, Focus::Other) {
                                         Some(data.active_option.index)
                                     } else {
                                         None
@@ -218,18 +253,22 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                                     rect.render_stateful_widget(list, state_layout[0], &mut active);
 
                                     // Player Inventory
-                                    let mut query = app.world.query_filtered::<(Entity, &Inventory), With<PlayerTag>>();
-                                    let (player_entity, inventory) = query.single(&app.world);
-                                    let list = render_inventory(inventory, "Your Inventory");
+                                    let mut query = app.world.query_filtered::<&Inventory, With<PlayerTag>>();
+                                    let inventory = query.single(&app.world);
+                                    let inventory_title = if matches!(data.active_option.focus, Focus::Ours) {
+                                        "Your Inventory [Focused]"
+                                    } else {
+                                        "Your Inventory"
+                                    };
+                                    let list = render_inventory(inventory, inventory_title);
                                     let mut active = ListState::default();
-                                    active.select(if player_entity == entity {
+                                    active.select(if matches!(data.active_option.focus, Focus::Ours) {
                                         Some(data.active_option.index)
                                     } else {
                                         None
                                     });
                                     rect.render_stateful_widget(list, state_layout[1], &mut active);
                                 }
-                                //loot_menu.select(app, (loot, 0), player_entity);
                             }
                         },
                         PlayerState::None => {},
@@ -250,9 +289,9 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                     let mut query = app.world.query_filtered::<&Inventory, With<PlayerTag>>();
                     if let Ok(player_inventory) = query.get_single(&app.world) {
                         let item_list = render_inventory(player_inventory, "Inventory");
-                        let mut camera_data = app.world.resource::<CameraData>().selection.clone();
+                        let mut camera_data = app.world.resource::<CameraData>().inventory_selection.clone();
                         rect.render_stateful_widget(item_list, main_layout[1], &mut camera_data);
-                        app.world.resource_mut::<CameraData>().selection = camera_data;
+                        app.world.resource_mut::<CameraData>().inventory_selection = camera_data;
                     }
                 },
                 Menu::Settings => {
@@ -358,11 +397,20 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                                             data.active_option.increment(dialogue.options.len());
                                         },
                                         PlayerState::Looting => {
-                                            let loot_menu = app.world.resource::<LootMenu>();
-                                            if let Some(loot) = loot_menu.inventory {
-                                                if let Some(loot) = app.world.entity(loot).get::<Inventory>() {
-                                                    data.active_option.increment(loot.items().len());
-                                                }
+                                            match data.active_option.focus {
+                                                Focus::Ours => {
+                                                    let mut query = app.world.query_filtered::<&Inventory, With<PlayerTag>>();
+                                                    let player_inventory = query.single(&app.world);
+                                                    data.active_option.increment(player_inventory.items().len());
+                                                },
+                                                Focus::Other => {
+                                                    let loot_menu = app.world.resource::<LootMenu>();
+                                                    if let Some(loot) = loot_menu.inventory {
+                                                        if let Some(loot) = app.world.entity(loot).get::<Inventory>() {
+                                                            data.active_option.increment(loot.items().len());
+                                                        }
+                                                    }
+                                                },
                                             }
                                         },
                                         PlayerState::None => set_player_input_movement(app, MovementInput::South),
@@ -370,13 +418,47 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                                 },
                                 event::KeyCode::Left => set_player_input_movement(app, MovementInput::West),
                                 event::KeyCode::Enter => {
-                                    let player_state = app.world.resource_mut::<PlayerState>();
-                                    if matches!(*player_state, PlayerState::Dialogue) {
-                                        let copied_player_state = player_state.clone();
-                                        let mut dialogue = app.world.resource_mut::<Dialogue>();
-                                        let new_player_state = dialogue.select(copied_player_state, data.active_option.index);
-                                        let mut player_state = app.world.resource_mut::<PlayerState>();
-                                        *player_state = new_player_state;
+                                    let player_state = app.world.resource::<PlayerState>();
+                                    match *player_state {
+                                        PlayerState::Dialogue => {
+                                            let copied_player_state = player_state.clone();
+                                            let mut dialogue = app.world.resource_mut::<Dialogue>();
+                                            if let Some(index) = data.active_option.get_index(dialogue.options.len()) {
+                                                let new_player_state = dialogue.select(copied_player_state, index);
+                                                data.active_option.check(dialogue.options.len());
+                                                let mut player_state = app.world.resource_mut::<PlayerState>();
+                                                *player_state = new_player_state;
+                                            }
+                                        },
+                                        PlayerState::Looting => {
+                                            let loot_menu = app.world.resource::<LootMenu>();
+                                            if let Some(loot_inventory_entity) = loot_menu.inventory {
+                                                let count = match data.active_option.focus {
+                                                    Focus::Ours => {
+                                                        let (player_inventory_entity, inventory) = app.world.query_filtered::<(Entity, &Inventory), With<PlayerTag>>().single(&app.world);
+                                                        Some((player_inventory_entity, loot_inventory_entity, inventory.items().len()))
+                                                    },
+                                                    Focus::Other => {
+                                                        if let Some(loot_inventory) = app.world.entity(loot_inventory_entity).get::<Inventory>() {
+                                                            let count = loot_inventory.items().len();
+                                                            let player_inventory_entity = app.world.query_filtered::<Entity, With<PlayerTag>>().single(&app.world);
+                                                            Some((loot_inventory_entity, player_inventory_entity, count))
+                                                        } else {
+                                                            None
+                                                        }
+                                                    },
+                                                };
+                                                if let Some(count) = count {
+                                                    if let Some(index) = data.active_option.get_index(count.2) {
+                                                        transfer_item(app, (count.0, index), count.1);
+                                                        if let Some(from_inventory) = app.world.entity(count.0).get::<Inventory>() {
+                                                            data.active_option.check(from_inventory.items().len());
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        PlayerState::None => {},
                                     }
                                 },
                                 event::KeyCode::Char(' ') => {
@@ -389,6 +471,27 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                                         }
                                     }
                                 },
+                                event::KeyCode::Tab => {
+                                    // Select other inventory in loot menu!
+                                    data.active_option.focus = match data.active_option.focus {
+                                        Focus::Ours => Focus::Other,
+                                        Focus::Other => Focus::Ours,
+                                    };
+                                    data.active_option.check_from_focus(&mut app.world);
+                                },
+                                event::KeyCode::Esc => {
+                                    let mut player_state = app.world.resource_mut::<PlayerState>();
+                                    match *player_state {
+                                        PlayerState::Dialogue => {},
+                                        PlayerState::Looting => {
+                                            *player_state = PlayerState::None;
+                                            let mut loot_menu = app.world.resource_mut::<LootMenu>();
+                                            loot_menu.close();
+                                            data.active_option.index = 0;
+                                        },
+                                        PlayerState::None => {},
+                                    }
+                                },
                                 _ => switch_menu(&mut data.active_menu),
                             }
                         },
@@ -396,33 +499,49 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                             match key.code {
                                 event::KeyCode::Up => {
                                     let mut camera_data = app.world.resource_mut::<CameraData>();
-                                    if let Some(current_value) = camera_data.selection.selected() {
+                                    if let Some(current_value) = camera_data.inventory_selection.selected() {
                                         if current_value != 0 {
-                                            camera_data.selection.select(Some(current_value - 1));
+                                            camera_data.inventory_selection.select(Some(current_value - 1));
                                         }
                                     } else {
-                                        camera_data.selection.select(Some(0));
+                                        camera_data.inventory_selection.select(Some(0));
                                     }
                                 },
                                 event::KeyCode::Down => {
                                     if let Ok(inventory) = app.world.query_filtered::<&Inventory, With<PlayerTag>>().get_single(&app.world) {
                                         let item_count = inventory.items().len();
                                         let mut camera_data = app.world.resource_mut::<CameraData>();
-                                        if let Some(current_value) = camera_data.selection.selected() {
+                                        if let Some(current_value) = camera_data.inventory_selection.selected() {
                                             let new_value = current_value + 1;
                                             if new_value < item_count {
-                                                camera_data.selection.select(Some(new_value));
+                                                camera_data.inventory_selection.select(Some(new_value));
                                             }
                                         } else {
-                                            camera_data.selection.select(Some(0));
+                                            camera_data.inventory_selection.select(Some(0));
                                         }
                                     }
                                 },
                                 event::KeyCode::Enter => {
                                     let camera_data = app.world.resource::<CameraData>();
-                                    if let Some(current_value) = camera_data.selection.selected() {
+                                    if let Some(current_value) = camera_data.inventory_selection.selected() {
                                         let mut action_input = app.world.resource_mut::<ActionInput>();
                                         *action_input = ActionInput::SelectFromInventory(current_value);
+                                        app.update();
+                                        if let Ok(inventory) = app.world.query_filtered::<&Inventory, With<PlayerTag>>().get_single(&app.world) {
+                                            let count = inventory.items().len();
+                                            if current_value >= count {
+                                                let mut camera_data = app.world.resource_mut::<CameraData>();
+                                                camera_data.inventory_selection.select(Some(count - 1));
+                                                let player_state = app.world.resource::<PlayerState>();
+                                                match player_state {
+                                                    PlayerState::Looting => if matches!(data.active_option.focus, Focus::Ours) {
+                                                        data.active_option.check(count);
+                                                    },
+                                                    PlayerState::Dialogue |
+                                                    PlayerState::None => {},
+                                                }
+                                            }
+                                        }
                                     }
                                 },
                                 _ => switch_menu(&mut data.active_menu),
