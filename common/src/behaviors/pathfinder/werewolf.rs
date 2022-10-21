@@ -1,6 +1,6 @@
 use bevy::prelude::Query;
-use crate::{physics::{Map, MapCache, Position}, character::{CharacterType, CharacterData, WereForm}, map_brain::{CharacterBehaviorData, WerewolfState}};
-use super::{PathfinderBehavior, util::get_pathfinder_target, data::PathfinderGlobalData};
+use crate::{physics::{Map, MapCache, Position}, character::{CharacterType, CharacterData, WereForm}, map_brain::{CharacterBehaviorData, WerewolfState, HumanState}};
+use super::{PathfinderBehavior, data::PathfinderGlobalData, lerain::human_pathfinder};
 
 pub fn werewolf_pathfinder(
     data: &PathfinderGlobalData,
@@ -8,20 +8,20 @@ pub fn werewolf_pathfinder(
     map: &Map,
     map_cache: &mut MapCache,
     character_type: &CharacterType,
-    character_data: &CharacterData,
+    character_data: &mut CharacterData,
     character_behavior_data: &mut CharacterBehaviorData,
     position: &Position,
-    query: &Query<(&CharacterType, &CharacterData, &Position)>,
+    query: &Query<(&CharacterType, &Position)>,
 ) {
     if let CharacterData::Werewolf { form } = character_data {
         match form {
-            WereForm::Human => {
-                get_pathfinder_target(
-                    &mut behavior,
+            WereForm::Human(state) => {
+                human_pathfinder(
+                    state,
+                    data,
+                    behavior,
                     map,
                     map_cache,
-                    character_type,
-                    character_data,
                     position,
                     query,
                     CharacterType::Player,
@@ -30,20 +30,19 @@ pub fn werewolf_pathfinder(
             WereForm::Beast => {
                 if let CharacterBehaviorData::Werewolf { state } = character_behavior_data {
                     match state {
-                        WerewolfState::Human(state) => {},
                         WerewolfState::Hunt(target) => {
                             if let Some(target) = target {
 
                             } else {
-
+                                behavior.set_goal(position.clone(), super::Priority::High);
                             }
                         },
                         WerewolfState::Panic => {
-                            behavior.set_goal(Position::new(0, 0), super::Priority::Low).reach_goal_then(|params| {
+                            /*behavior.set_goal(Position::new(0, 0), super::Priority::Low).reach_goal_then(|params| {
                                 if let CharacterBehaviorData::Werewolf { state } = params.character_behavior_data {
                                     
                                 }
-                            });
+                            });*/
                         },
                     }
                 }

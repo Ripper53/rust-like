@@ -41,6 +41,9 @@ impl CharacterBehaviorData {
     pub const fn default_human() -> Self {
         CharacterBehaviorData::Human { state: HumanState::Idle(None) }
     }
+    pub const fn default_werewolf() -> Self {
+        CharacterBehaviorData::Werewolf { state: WerewolfState::Hunt(None) }
+    }
 }
 #[derive(Debug)]
 pub enum HumanState {
@@ -59,7 +62,6 @@ pub enum NewObjective {
 
 #[derive(Debug)]
 pub enum WerewolfState {
-    Human(HumanState),
     Hunt(Option<Position>),
     Panic,
 }

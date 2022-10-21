@@ -1,5 +1,4 @@
 use bevy::prelude::Query;
-use pathfinding::prelude::directions::N;
 use crate::{
     physics::{Map, MapCache, Position, KrillTheaterZone},
     character::{CharacterType, CharacterData},
@@ -24,83 +23,103 @@ pub fn lerain_pathfinder(
     map: &Map,
     map_cache: &mut MapCache,
     character_type: &CharacterType,
-    character_data: &CharacterData,
+    character_data: &mut CharacterData,
     character_behavior_data: &mut CharacterBehaviorData,
     position: &Position,
-    query: &Query<(&CharacterType, &CharacterData, &Position)>,
+    query: &Query<(&CharacterType, &Position)>,
 ) {
     if let CharacterBehaviorData::Human { state } = character_behavior_data {
-        match state {
-            HumanState::Idle(objective) => {
-                if !get_pathfinder_target(
-                    behavior,
-                    map,
-                    map_cache,
-                    character_type,
-                    character_data,
-                    position,
-                    query,
-                    CharacterType::Werewolf,
-                ) && behavior.is_at(position.clone()) {
-                    if let Some(tile) = map.get(position.x as usize, position.y as usize) {
-                        if let Some(krill_theater) = tile.krill_theater() {
-                            match krill_theater {
-                                KrillTheaterZone::Free => {
+        human_pathfinder(
+            state,
+            data,
+            behavior,
+            map,
+            map_cache,
+            position,
+            query,
+            CharacterType::Werewolf,
+        );
+    }
+}
+
+pub fn human_pathfinder(
+    state: &mut HumanState,
+    data: &PathfinderGlobalData,
+    behavior: &mut PathfinderBehavior,
+    map: &Map,
+    map_cache: &mut MapCache,
+    position: &Position,
+    query: &Query<(&CharacterType, &Position)>,
+    target_character_type: CharacterType,
+) {
+    match state {
+        HumanState::Idle(objective) => {
+            if !get_pathfinder_target(
+                behavior,
+                map,
+                map_cache,
+                position,
+                query,
+                target_character_type,
+            ) && behavior.is_at(position.clone()) {
+                if let Some(tile) = map.get(position.x as usize, position.y as usize) {
+                    if let Some(krill_theater) = tile.krill_theater() {
+                        match krill_theater {
+                            KrillTheaterZone::Free => {
+                                set_goal(
+                                    state,
+                                    behavior,
+                                    data.get_target(super::data::CharacterType::Lerain),
+                                    Priority::Low,
+                                );
+                            },
+                            KrillTheaterZone::LineUp(target) => {
+                                behavior.set_goal(*target, Priority::Low);
+                            },
+                            KrillTheaterZone::Exit => {
+                                if let Some(objective) = objective {
+                                    let index: Option<usize> = if let NewObjective::WanderButExclude(i) = objective {
+                                        Some(*i)
+                                    } else {
+                                        None
+                                    };
+                                    if let Some(index) = index {
+                                        set_goal(
+                                            state,
+                                            behavior,
+                                            data.get_target_except(super::data::CharacterType::Lerain, index),
+                                            Priority::Medium,
+                                        );
+                                    }
+                                } else {
                                     set_goal(
                                         state,
                                         behavior,
                                         data.get_target(super::data::CharacterType::Lerain),
-                                        Priority::Low,
+                                        Priority::Medium,
                                     );
-                                },
-                                KrillTheaterZone::LineUp(target) => {
-                                    behavior.set_goal(*target, Priority::Low);
-                                },
-                                KrillTheaterZone::Exit => {
-                                    if let Some(objective) = objective {
-                                        let index: Option<usize> = if let NewObjective::WanderButExclude(i) = objective {
-                                            Some(*i)
-                                        } else {
-                                            None
-                                        };
-                                        if let Some(index) = index {
-                                            set_goal(
-                                                state,
-                                                behavior,
-                                                data.get_target_except(super::data::CharacterType::Lerain, index),
-                                                Priority::Medium,
-                                            );
-                                        }
-                                    } else {
-                                        set_goal(
-                                            state,
-                                            behavior,
-                                            data.get_target(super::data::CharacterType::Lerain),
-                                            Priority::Medium,
-                                        );
-                                    }
-                                },
-                            }
-                        } else if let Some(o) = objective {
-                            match o {
-                                NewObjective::WanderButExclude(index) => {
-                                    let goal = data.get_target_except(super::data::CharacterType::Lerain, *index);
-                                    set_goal(state, behavior, goal, Priority::Low);
-                                },
-                            }
-                        } else {
-                            set_goal(
-                                state,
-                                behavior,
-                                data.get_target(super::data::CharacterType::Lerain),
-                                Priority::Low,
-                            );
+                                }
+                            },
                         }
+                    } else if let Some(o) = objective {
+                        match o {
+                            NewObjective::WanderButExclude(index) => {
+                                let goal = data.get_target_except(super::data::CharacterType::Lerain, *index);
+                                set_goal(state, behavior, goal, Priority::Low);
+                            },
+                        }
+                    } else {
+                        set_goal(
+                            state,
+                            behavior,
+                            data.get_target(super::data::CharacterType::Lerain),
+                            Priority::Low,
+                        );
                     }
                 }
-            },
-            HumanState::Moving(_index) => {},
-            HumanState::Panic => {},
-        }
+            }
+        },
+        HumanState::Moving(_index) => {},
+        HumanState::Panic => {},
     }
 }

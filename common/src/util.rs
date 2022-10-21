@@ -93,9 +93,12 @@ pub fn spawn_werewolf(commands: &mut Commands, map: &mut Map, position: Position
         position,
         Health::new(1),
         CharacterType::Werewolf,
-        CharacterData::Werewolf { form: crate::character::WereForm::Human },
+        CharacterData::Werewolf {
+            form: crate::character::WereForm::Human(crate::map_brain::HumanState::Idle(None)),
+        },
         |mut entity_commands| {
             entity_commands
+                .insert(CharacterBehaviorData::default_werewolf())
                 .insert(PathfinderBehavior::new(4, werewolf_pathfinder))
                 .insert(WerewolfBehavior::new());
         },

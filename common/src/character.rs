@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, default};
 use bevy::prelude::*;
-use crate::{physics::*, dialogue::{Dialogue, DialogueOption}, inventory::{Equipment, Inventory}, PlayerState, loot_menu::LootMenu};
+use crate::{physics::*, dialogue::{Dialogue, DialogueOption}, inventory::{Equipment, Inventory}, PlayerState, loot_menu::LootMenu, map_brain::HumanState};
 
 #[derive(Component)]
 pub struct PlayerTag;
@@ -107,7 +107,7 @@ impl ToString for ActionHistory {
         text
     }
 }
-#[derive(Component, Debug)]
+#[derive(Component, Clone, Debug)]
 pub enum CharacterType {
     Player,
     Lerain,
@@ -115,10 +115,21 @@ pub enum CharacterType {
     Werewolf,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug)]
 pub enum WereForm {
-    Human,
+    Human(HumanState),
     Beast,
+}
+impl PartialEq for WereForm {
+    fn eq(&self, other: &Self) -> bool {
+        match self {
+            WereForm::Human(_) => matches!(other, WereForm::Human(_)),
+            WereForm::Beast => matches!(other, WereForm::Beast),
+        }
+    }
+    fn ne(&self, other: &Self) -> bool {
+        !self.eq(other)
+    }
 }
 #[derive(Component, Debug)]
 pub enum CharacterData {
@@ -228,6 +239,7 @@ pub enum CollisionCheckResult {
 fn check_collision_and_move(
     map: &mut Map,
     entity: Entity,
+    character_type: Option<CharacterType>,
     collision: &mut Collision,
     current_position: &mut Position,
     new_position: &Position,
@@ -239,10 +251,11 @@ fn check_collision_and_move(
             if tile.is_occupied(collision) {
                 CollisionCheckResult::IsOccupied(new_position.clone())
             } else if let Tile::Ground { occupier, .. } | Tile::Obstacle { occupier } = tile {
+                
                 *occupier = if let Some(s) = sprite {
-                    Some(Occupier::new(entity, *s, collision.collision_type.clone()))
+                    Some(Occupier::new(entity, *s, collision.collision_type.clone(), character_type))
                 } else {
-                    Some(Occupier::new(entity, Sprite::new('?'), collision.collision_type.clone()))
+                    Some(Occupier::new(entity, Sprite::new('?'), collision.collision_type.clone(), character_type))
                 };
                 *current_position = new_position.clone();
                 CollisionCheckResult::NoCollision
@@ -271,13 +284,14 @@ fn check_collision_and_move(
 pub fn check_collision_and_move_or_interact(
     map: &mut Map,
     entity: Entity,
+    character_type: Option<CharacterType>,
     collision: &mut Collision,
     current_position: &mut Position,
     new_position: &Position,
     sprite: Option<&Sprite>,
     interact: &mut Interact,
 ) -> bool {
-    let result = check_collision_and_move(map, entity, collision, current_position, new_position, sprite);
+    let result = check_collision_and_move(map, entity, character_type, collision, current_position, new_position, sprite);
     if let CollisionCheckResult::IsOccupied(position) = result {
         if let Some(
             Tile::Ground { occupier, .. } |
@@ -301,6 +315,7 @@ pub fn check_collision_and_move_or_interact(
 fn move_update(
     map: &mut Map,
     entity: Entity,
+    character_type: Option<CharacterType>,
     collision: &mut Collision,
     input: &MovementInput,
     position: &mut Position,
@@ -312,6 +327,7 @@ fn move_update(
         if check_collision_and_move_or_interact(
             map,
             entity,
+            character_type,
             collision,
             position,
             &(*position + movement),
@@ -326,12 +342,27 @@ fn move_update(
 }
 pub fn player_movement_update(
     mut map: ResMut<Map>,
-    mut player_query: Query<(Entity, &MovementInput, &mut Position, Option<&Sprite>, &mut Collision, &mut Interact, Option<&mut ActionHistory>), With<PlayerTag>>,
+    mut player_query: Query<(
+        Entity,
+        &MovementInput,
+        Option<&CharacterType>,
+        &mut Position,
+        Option<&Sprite>,
+        &mut Collision,
+        &mut Interact,
+        Option<&mut ActionHistory>,
+    ), With<PlayerTag>>,
 ) {
-    for (entity, input, mut position, sprite, mut collision, mut interact, mut action_history) in player_query.iter_mut() {
+    for (entity, input, character_type, mut position, sprite, mut collision, mut interact, mut action_history) in player_query.iter_mut() {
+        let c = if let Some(character_type) = character_type {
+            Some(character_type.clone())
+        } else {
+            None
+        };
         move_update(
             &mut map,
             entity,
+            c,
             &mut collision,
             input,
             &mut position,
@@ -343,9 +374,9 @@ pub fn player_movement_update(
 }
 pub fn npc_movement_update(
     mut map: ResMut<Map>,
-    mut npc_query: Query<(Entity, &mut MovementInput, &mut Position, Option<&Sprite>, &mut Collision, &mut Interact, Option<&mut ActionHistory>, Option<&Velocity>), Without<PlayerTag>>,
+    mut npc_query: Query<(Entity, &mut MovementInput, Option<&CharacterType>, &mut Position, Option<&Sprite>, &mut Collision, &mut Interact, Option<&mut ActionHistory>, Option<&Velocity>), Without<PlayerTag>>,
 ) {
-    for (entity, mut movement_input, mut position, sprite, mut collision, mut interact, mut action_history, velocity) in npc_query.iter_mut() {
+    for (entity, mut movement_input, character_type, mut position, sprite, mut collision, mut interact, mut action_history, velocity) in npc_query.iter_mut() {
         let times = if let Some(velocity) = velocity {
             if let InteractData::Projectile { ref mut recent_spawn, .. } = interact.data {
                 if *recent_spawn {
@@ -362,10 +393,16 @@ pub fn npc_movement_update(
         } else {
             1
         };
+        let c = if let Some(character_type) = character_type {
+            Some(character_type.clone())
+        } else {
+            None
+        };
         for _ in 0..times {
             move_update(
                 &mut map,
                 entity,
+                c.clone(),
                 &mut collision,
                 &movement_input,
                 &mut position,

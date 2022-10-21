@@ -1,5 +1,3 @@
-use std::default;
-
 use bevy::prelude::SystemLabel;
 
 pub mod constants;

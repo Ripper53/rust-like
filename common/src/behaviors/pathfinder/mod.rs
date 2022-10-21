@@ -55,10 +55,10 @@ type GetTarget = fn(
     &Map,
     &mut MapCache,
     &CharacterType,
-    &CharacterData,
+    &mut CharacterData,
     &mut CharacterBehaviorData,
     &Position,
-    &Query<(&CharacterType, &CharacterData, &Position)>,
+    &Query<(&CharacterType, &Position)>,
 );
 type ReachedGoal = fn(ReachedGoalParams);
 pub struct PathfinderBehavior {
@@ -165,15 +165,15 @@ pub fn pathfinder_update(
     mut query: Query<(
         &mut BehaviorData<PathfinderBehavior>,
         &CharacterType,
-        &CharacterData,
+        &mut CharacterData,
         &mut CharacterBehaviorData,
         &Position,
         &mut MovementInput,
     )>,
     mut collision_query: Query<&mut Collision>,
-    search_query: Query<(&CharacterType, &CharacterData, &Position)>,
+    search_query: Query<(&CharacterType, &Position)>,
 ) {
-    for (mut pathfinder, character_type, character_data, mut character_behavior_data, position, mut movement_input) in query.iter_mut() {
+    for (mut pathfinder, character_type, mut character_data, mut character_behavior_data, position, mut movement_input) in query.iter_mut() {
         if pathfinder.behavior.is_at(position.clone()) {
             // We have reached our goal,
             // forget the path whence we came.
@@ -196,7 +196,7 @@ pub fn pathfinder_update(
                     &map,
                     &mut map_cache,
                     character_type,
-                    character_data,
+                    &mut character_data,
                     &mut character_behavior_data,
                     position,
                     &search_query,

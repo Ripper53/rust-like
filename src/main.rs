@@ -15,12 +15,12 @@ fn setup(mut commands: Commands, mut map: ResMut<Map>) {
             entity_commands.insert(PlayerTag);
         },
     );
-    spawn_lerain(&mut commands, &mut map, Position::new(50, 8));
+    //spawn_lerain(&mut commands, &mut map, Position::new(50, 8));
     //spawn_lerain(&mut commands, &mut map, Position::new(20, 40));
     //spawn_lerain(&mut commands, &mut map, Position::new(30, 10));
     //spawn_lerain(&mut commands, &mut map, Position::new(25, 20));
-    //spawn_werewolf(&mut commands, &mut map, Position::new(2, 4));
-    
+    spawn_werewolf(&mut commands, &mut map, Position::new(2, 4));
+
     spawn_chest(&mut commands, &mut map, Position::new(50, 10), Inventory::new(
         vec![
             Box::new(Item::new_apple()),
@@ -108,7 +108,7 @@ fn main() {
                 collision_update
                     .run_if_not(pause_main_game)
                     .label(COLLISION_UPDATE_LABEL)
-                    .after(NPC_MOVEMENT_UPDATE_LABEL),
+                    .after(NPC_MOVEMENT_UPDATE_LABEL)
             )
             .with_system(
                 interact_update

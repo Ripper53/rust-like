@@ -46,6 +46,16 @@ pub enum Tile {
         occupier: Option<Occupier>,
     },
 }
+impl Tile {
+    pub fn is_character(&self) -> bool {
+        if let Tile::Ground { occupier, .. } = self {
+            if let Some(occupier) = occupier {
+                return occupier.character_type.is_some()
+            }
+        }
+        false
+    }
+}
 impl PartialEq for Tile {
     fn eq(&self, other: &Self) -> bool {
         match self {
@@ -63,10 +73,16 @@ pub struct Occupier {
     pub entity: Entity,
     pub sprite: crate::character::Sprite,
     pub collision_type: CollisionType,
+    pub character_type: Option<CharacterType>,
 }
 impl Occupier {
-    pub fn new(entity: Entity, sprite: crate::character::Sprite, collision_type: CollisionType) ->  Self {
-        Occupier { entity, sprite, collision_type }
+    pub fn new(
+        entity: Entity,
+        sprite: crate::character::Sprite,
+        collision_type: CollisionType,
+        character_type: Option<CharacterType>,
+    ) ->  Self {
+        Occupier { entity, sprite, collision_type, character_type }
     }
 }
 
@@ -160,7 +176,7 @@ impl Map {
         if let Some(tile) = self.get_mut(position.x as usize, position.y as usize) {
             if let Tile::Ground { occupier, .. } | Tile::Obstacle { occupier } = tile {
                 let mut entity = commands.spawn();
-                *occupier = Some(Occupier::new(entity.id(), sprite, collision_type));
+                *occupier = Some(Occupier::new(entity.id(), sprite, collision_type, None));
                 entity
                     .insert(sprite)
                     .insert(position)
@@ -185,7 +201,7 @@ impl Map {
                 ..
              } = tile {
                 let mut entity = commands.spawn();
-                *occupier_option = Some(Occupier::new(entity.id(), sprite, CollisionType::Solid));
+                *occupier_option = Some(Occupier::new(entity.id(), sprite, CollisionType::Solid, Some(character_type.clone())));
                 entity.insert_bundle(CharacterBundle {
                     input_data: crate::character::MovementInput::Idle,
                     sprite,

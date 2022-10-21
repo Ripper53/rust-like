@@ -24,18 +24,18 @@ pub fn werewolf_update(
         &mut CharacterBehaviorData,
         &mut Sprite,
         &Position,
-        &mut BehaviorData<PathfinderBehavior,
-    >)>,
+        &mut BehaviorData<PathfinderBehavior>,
+    )>,
 ) {
     for (mut character_data, mut character_behavior_data, mut sprite, position, mut pathfinder) in query.iter_mut() {
         if let CharacterData::Werewolf { form } = character_data.as_mut() {
             if let CharacterBehaviorData::Werewolf { state } = character_behavior_data.as_mut() {
                 let in_vision = map.get_in_vision(&mut map_cache, position.clone());
-                let mut character_count: u32 = 0;
+                let mut character_count = 0;
                 const BEAST_FORM_COUNT: u32 = 2;
                 for p in in_vision {
-                    if let Some(Tile::Ground { occupier, .. }) = map.get(p.x as usize, p.y as usize) {
-                        if occupier.is_some() {
+                    if let Some(tile) = map.get(p.x as usize, p.y as usize) {
+                        if tile.is_character() {
                             character_count += 1;
                             if character_count > BEAST_FORM_COUNT {
                                 break;
@@ -43,7 +43,7 @@ pub fn werewolf_update(
                         }
                     }
                 }
-    
+
                 let new_form = if character_count == BEAST_FORM_COUNT {
                     *state = WerewolfState::Hunt(None);
                     WereForm::Beast
@@ -51,13 +51,13 @@ pub fn werewolf_update(
                     *state = WerewolfState::Panic;
                     WereForm::Beast
                 } else {
-                    WereForm::Human
+                    WereForm::Human(crate::map_brain::HumanState::Idle(None))
                 };
-    
+
                 if new_form != *form {
                     *form = new_form;
                     match form {
-                        WereForm::Human => {
+                        WereForm::Human(_) => {
                             sprite.set_character(HUMAN_CHARACTER, &mut map, position);
                             pathfinder.behavior.set_skip_turn(HUMAN_SKIP_AT);
                         },
