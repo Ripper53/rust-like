@@ -1,43 +1,21 @@
 use bevy::prelude::*;
 use client::render::*;
-use common::{physics::*, character::*, dialogue::Dialogue, inventory::{inventory_update, Inventory, Item}, util::{spawn_lerain, spawn_werewolf, spawn_chest}, ActionInput, Scene, behaviors::pathfinder::data::PathfinderGlobalData, PlayerState, loot_menu::LootMenu};
+use common::{
+    physics::*,
+    character::*,
+    dialogue::Dialogue,
+    ActionInput,
+    Scene,
+    behaviors::pathfinder::data::PathfinderGlobalData,
+    PlayerState,
+    loot_menu::LootMenu,
+    map_setup::town,
+    inventory::inventory_update,
+};
 use iyes_loopless::condition::IntoConditionalExclusiveSystem;
 
-fn setup(mut commands: Commands, mut map: ResMut<Map>) {
-    map.spawn_character(
-        &mut commands,
-        common::character::Sprite::new('@'),
-        Position::new(50, 2),
-        Health::new(1),
-        CharacterType::Player,
-        CharacterData::Human,
-        |mut entity_commands| {
-            entity_commands.insert(PlayerTag);
-        },
-    );
-    //spawn_lerain(&mut commands, &mut map, Position::new(50, 8));
-    //spawn_lerain(&mut commands, &mut map, Position::new(20, 40));
-    //spawn_lerain(&mut commands, &mut map, Position::new(30, 10));
-    //spawn_lerain(&mut commands, &mut map, Position::new(25, 20));
-    spawn_werewolf(&mut commands, &mut map, Position::new(2, 4));
-
-    spawn_chest(&mut commands, &mut map, Position::new(50, 10), Inventory::new(
-        vec![
-            Box::new(Item::new_apple()),
-            Box::new(Item::new_banana()),
-            Box::new(Item::new_apple()),
-        ],
-    ));
-    spawn_chest(&mut commands, &mut map, Position::new(49, 10), Inventory::new(
-        vec![
-            Box::new(Item::new_apple()),
-            Box::new(Item::new_banana()),
-            Box::new(Item::new_apple()),
-            Box::new(Item::new_apple()),
-            Box::new(Item::new_banana()),
-            Box::new(Item::new_apple()),
-        ],
-    ));
+fn setup(mut commands: Commands, mut map: ResMut<Map>, pathfinder_data: Res<PathfinderGlobalData>) {
+    town(&mut commands, &mut map, &pathfinder_data);
 }
 
 fn pause_main_game(player_state: Res<PlayerState>) -> bool {

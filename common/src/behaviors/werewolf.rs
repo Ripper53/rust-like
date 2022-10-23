@@ -1,8 +1,8 @@
-use bevy::prelude::{Query, ResMut};
+use bevy::prelude::{Query, ResMut, Commands};
 use crate::{
     map_brain::{BehaviorData, CharacterBehaviorData, WerewolfState},
-    character::{CharacterData, Sprite, WereForm},
-    physics::{Map, Position, Tile, MapCache},
+    character::{CharacterData, Sprite, WereForm, Health},
+    physics::{Map, Position, MapCache, Tile},
     constants::{WEREWOLF_SKIP_AT, HUMAN_SKIP_AT, WEREWOLF_CHARACTER, HUMAN_CHARACTER},
 };
 use super::pathfinder::PathfinderBehavior;
@@ -26,26 +26,41 @@ pub fn werewolf_update(
         &Position,
         &mut BehaviorData<PathfinderBehavior>,
     )>,
+    mut health_query: Query<&mut Health>,
 ) {
     for (mut character_data, mut character_behavior_data, mut sprite, position, mut pathfinder) in query.iter_mut() {
         if let CharacterData::Werewolf { form } = character_data.as_mut() {
             if let CharacterBehaviorData::Werewolf { state } = character_behavior_data.as_mut() {
                 let in_vision = map.get_in_vision(&mut map_cache, position.clone());
                 let mut character_count = 0;
-                const BEAST_FORM_COUNT: u32 = 2;
+                const BEAST_FORM_COUNT: u32 = 1;
+                let mut nearest_target: Option<Position> = None;
                 for p in in_vision {
-                    if let Some(tile) = map.get(p.x as usize, p.y as usize) {
-                        if tile.is_character() {
-                            character_count += 1;
-                            if character_count > BEAST_FORM_COUNT {
-                                break;
+                    if p != position {
+                        if let Some(tile) = map.get(p.x as usize, p.y as usize) {
+                            if tile.is_character() {
+                                if let Some(target) = nearest_target {
+                                    if p.distance(position) < target.distance(position) {
+                                        nearest_target = Some(p.clone());
+                                    }
+                                } else {
+                                    nearest_target = Some(p.clone());
+                                }
+                                character_count += 1;
+                                if character_count > BEAST_FORM_COUNT {
+                                    break;
+                                }
                             }
                         }
                     }
                 }
 
                 let new_form = if character_count == BEAST_FORM_COUNT {
-                    *state = WerewolfState::Hunt(None);
+                    *state = if let Some(target) = nearest_target {
+                        WerewolfState::Hunt(Some(target))
+                    } else {
+                        WerewolfState::Hunt(None)
+                    };
                     WereForm::Beast
                 } else if character_count > BEAST_FORM_COUNT {
                     *state = WerewolfState::Panic;
@@ -65,6 +80,18 @@ pub fn werewolf_update(
                             sprite.set_character(WEREWOLF_CHARACTER, &mut map, position);
                             pathfinder.behavior.set_skip_turn(WEREWOLF_SKIP_AT);
                         },
+                    }
+                }
+
+                // Attack
+                for attack_offset in [Position::new(0, 1), Position::new(1, 0), Position::new(0, -1), Position::new(-1, 0)] {
+                    let p = *position + attack_offset;
+                    if let Some(Tile::Ground { occupier, .. }) = map.get(p.x as usize, p.y as usize) {
+                        if let Some(occupier) = occupier {
+                            if let Ok(mut health) = health_query.get_mut(occupier.entity) {
+                                health.damage(1);
+                            }
+                        }
                     }
                 }
             }

@@ -32,9 +32,9 @@ pub fn werewolf_pathfinder(
                     match state {
                         WerewolfState::Hunt(target) => {
                             if let Some(target) = target {
-
+                                behavior.set_goal(target.clone(), super::Priority::Medium);
                             } else {
-                                behavior.set_goal(position.clone(), super::Priority::High);
+                                behavior.set_goal(position.clone(), super::Priority::Medium);
                             }
                         },
                         WerewolfState::Panic => {
@@ -46,7 +46,6 @@ pub fn werewolf_pathfinder(
                         },
                     }
                 }
-
             },
         }
     }

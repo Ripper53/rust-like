@@ -316,10 +316,8 @@ impl Map {
     }
 }
 impl FromWorld for Map {
-    fn from_world(world: &mut World) -> Self {
-        let mut map = Map::new::<60, 30>();
-        town(&mut map, world.resource::<PathfinderGlobalData>());
-        map
+    fn from_world(_world: &mut World) -> Self {
+        Map::new::<60, 30>()
     }
 }
 #[derive(Default)]

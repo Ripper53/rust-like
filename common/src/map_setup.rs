@@ -1,4 +1,6 @@
-use crate::{physics::{Map, Tile, Position, Zone, KrillTheaterZone}, behaviors::pathfinder::data::PathfinderGlobalData};
+use bevy::prelude::Commands;
+
+use crate::{physics::{Map, Tile, Position, Zone, KrillTheaterZone}, behaviors::pathfinder::data::PathfinderGlobalData, util::{spawn_chest, spawn_werewolf}, inventory::{Inventory, Item}, character::Health};
 
 impl Map {
     fn create_room<F: Fn(&mut Tile)>(&mut self, bottom_left: Position, top_right: Position, border_tile: Tile, place_tile: F) {
@@ -47,7 +49,7 @@ impl Map {
         }
     }
 }
-pub fn town(map: &mut Map, data: &PathfinderGlobalData) {
+pub fn town(commands: &mut Commands, map: &mut Map, data: &PathfinderGlobalData) {
     map.initialize::<220, 100>();
 
     fn home(map: &mut Map, bottom_left: Position, top_right: Position, zone: Zone) {
@@ -65,6 +67,11 @@ pub fn town(map: &mut Map, data: &PathfinderGlobalData) {
             Tile::Obstacle { occupier: None },
             |tile| *tile = Tile::Obstacle { occupier: None },
         );
+    }
+    fn home_entrance(map: &mut Map, position: Position) {
+        if let Some(tile) = map.get_mut(position.x as usize, position.y as usize) {
+            *tile = Tile::Ground { occupier: None, zone: Zone::Home };
+        }
     }
 
     {
@@ -187,12 +194,54 @@ pub fn town(map: &mut Map, data: &PathfinderGlobalData) {
         }
     }
 
-    let position = Position::new(29, 49);
-    home(map, position, position + Position::new(10, 10), Zone::Home);
     let position = Position::new(29, 29);
     home(map, position, position + Position::new(10, 6), Zone::Home);
+    home_entrance(map, position + Position::new(10, 2));
+    home(map, position + Position::new(6, 6), position + Position::new(10, 10), Zone::Home);
+    home_entrance(map, position + Position::new(7, 6));
+    spawn_chest(commands, map, position + Position::new(7, 9), Inventory::new(
+        vec![
+            Box::new(Item::new_apple()),
+            Box::new(Item::new_banana()),
+            Box::new(Item::new_apple()),
+        ],
+    ));
+    let position = Position::new(29, 49);
+    home(map, position, position + Position::new(10, 10), Zone::Home);
+    home_entrance(map, position + Position::new(0, 8));
+    home_entrance(map, position + Position::new(8, 0));
     let position = Position::new(49, 49);
     home(map, position, position + Position::new(10, 10), Zone::Home);
+    home_entrance(map, position + Position::new(2, 0));
+    home_entrance(map, position + Position::new(10, 8));
     let position = Position::new(200, 60);
     home(map, position, position + Position::new(10, 8), Zone::Home);
+    home_entrance(map, position + Position::new(0, 2));
+    spawn_chest(commands, map, position + Position::new(9, 1), Inventory::new(
+        vec![
+            Box::new(Item::new_pistol()),
+        ],
+    ));
+
+    obstacle(map, Position::new(12, 38), Position::new(13, 46));
+    for pos in [Position::new(18, 38), Position::new(21, 38), Position::new(24, 38), Position::new(27, 38)] {
+        obstacle(map, pos, pos + Position::new(0, 8));
+    }
+
+    map.spawn_character(
+        commands,
+        crate::character::Sprite::new('@'),
+        Position::new(50, 2),
+        Health::new(4),
+        crate::character::CharacterType::Player,
+        crate::character::CharacterData::Human,
+        |mut entity_commands| {
+            entity_commands.insert(crate::character::PlayerTag);
+        },
+    );
+    //spawn_lerain(&mut commands, &mut map, Position::new(50, 8));
+    //spawn_lerain(&mut commands, &mut map, Position::new(20, 40));
+    //spawn_lerain(&mut commands, &mut map, Position::new(30, 10));
+    //spawn_lerain(&mut commands, &mut map, Position::new(25, 20));
+    spawn_werewolf(commands, map, Position::new(2, 4));
 }
