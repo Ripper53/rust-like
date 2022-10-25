@@ -1,9 +1,9 @@
-use bevy::prelude::{Query, ResMut, Commands};
+use bevy::prelude::{Query, ResMut};
 use crate::{
     map_brain::{BehaviorData, CharacterBehaviorData, WerewolfState},
     character::{CharacterData, Sprite, WereForm, Health},
     physics::{Map, Position, MapCache, Tile},
-    constants::{WEREWOLF_SKIP_AT, HUMAN_SKIP_AT, WEREWOLF_CHARACTER, HUMAN_CHARACTER},
+    constants::{WEREWOLF_SKIP_AT, HUMAN_SKIP_AT},
 };
 use super::pathfinder::PathfinderBehavior;
 
@@ -31,6 +31,19 @@ pub fn werewolf_update(
     for (mut character_data, mut character_behavior_data, mut sprite, position, mut pathfinder) in query.iter_mut() {
         if let CharacterData::Werewolf { form } = character_data.as_mut() {
             if let CharacterBehaviorData::Werewolf { state } = character_behavior_data.as_mut() {
+                // Attack
+                for attack_offset in [Position::new(0, 1), Position::new(1, 0), Position::new(0, -1), Position::new(-1, 0)] {
+                    let p = *position + attack_offset;
+                    if let Some(Tile::Ground { occupier, .. }) = map.get(p.x as usize, p.y as usize) {
+                        if let Some(occupier) = occupier {
+                            if let Ok(mut health) = health_query.get_mut(occupier.entity) {
+                                health.damage(1);
+                            }
+                        }
+                    }
+                }
+
+                // Transition Forms
                 let in_vision = map.get_in_vision(&mut map_cache, position.clone());
                 let mut character_count = 0;
                 const BEAST_FORM_COUNT: u32 = 1;
@@ -55,46 +68,56 @@ pub fn werewolf_update(
                     }
                 }
 
+                let set_form = |new_form: WereForm| {
+                    match new_form {
+                        WereForm::Human(_) => if !matches!(form, WereForm::Human(_)) {
+                            return Some(new_form);
+                        },
+                        WereForm::Beast => if !matches!(form, WereForm::Beast) {
+                            return Some(new_form);
+                        },
+                    }
+                    None
+                };
                 let new_form = if character_count == BEAST_FORM_COUNT {
                     *state = if let Some(target) = nearest_target {
                         WerewolfState::Hunt(Some(target))
                     } else {
                         WerewolfState::Hunt(None)
                     };
-                    WereForm::Beast
+                    set_form(WereForm::Beast)
                 } else if character_count > BEAST_FORM_COUNT {
                     *state = WerewolfState::Panic;
-                    WereForm::Beast
+                    set_form(WereForm::Beast)
+                } else if check(state, position) {
+                    set_form(WereForm::Human(crate::map_brain::HumanState::Idle(None)))
                 } else {
-                    WereForm::Human(crate::map_brain::HumanState::Idle(None))
+                    None
                 };
 
-                if new_form != *form {
+                if let Some(new_form) = new_form {
                     *form = new_form;
                     match form {
                         WereForm::Human(_) => {
-                            sprite.set_character(HUMAN_CHARACTER, &mut map, position);
+                            sprite.set_sprite(Sprite::Lerain, &mut map, position);
                             pathfinder.behavior.set_skip_turn(HUMAN_SKIP_AT);
                         },
                         WereForm::Beast => {
-                            sprite.set_character(WEREWOLF_CHARACTER, &mut map, position);
+                            sprite.set_sprite(Sprite::Werewolf, &mut map, position);
                             pathfinder.behavior.set_skip_turn(WEREWOLF_SKIP_AT);
                         },
-                    }
-                }
-
-                // Attack
-                for attack_offset in [Position::new(0, 1), Position::new(1, 0), Position::new(0, -1), Position::new(-1, 0)] {
-                    let p = *position + attack_offset;
-                    if let Some(Tile::Ground { occupier, .. }) = map.get(p.x as usize, p.y as usize) {
-                        if let Some(occupier) = occupier {
-                            if let Ok(mut health) = health_query.get_mut(occupier.entity) {
-                                health.damage(1);
-                            }
-                        }
                     }
                 }
             }
         }
     }
+}
+
+fn check(state: &WerewolfState, position: &Position) -> bool {
+    if let WerewolfState::Hunt(Some(target)) = state {
+        if position != target {
+            return false;
+        }
+    }
+    return true;
 }

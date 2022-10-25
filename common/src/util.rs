@@ -27,7 +27,8 @@ use crate::{
         },
         werewolf::WerewolfBehavior,
     },
-    constants::HUMAN_CHARACTER, map_brain::CharacterBehaviorData, inventory::Inventory,
+    map_brain::CharacterBehaviorData,
+    inventory::Inventory,
 };
 
 fn spawn_character(
@@ -55,7 +56,7 @@ pub fn spawn_lerain(commands: &mut Commands, map: &mut Map, position: Position) 
     spawn_character(
         commands,
         map,
-        Sprite::new(HUMAN_CHARACTER),
+        Sprite::Lerain,
         position,
         Health::new(1),
         CharacterType::Lerain,
@@ -72,7 +73,7 @@ pub fn spawn_rumdare(commands: &mut Commands, map: &mut Map, position: Position)
     spawn_character(
         commands,
         map,
-        Sprite::new(HUMAN_CHARACTER),
+        Sprite::Rumdare,
         position,
         Health::new(1),
         CharacterType::Rumdare,
@@ -89,7 +90,7 @@ pub fn spawn_werewolf(commands: &mut Commands, map: &mut Map, position: Position
     spawn_character(
         commands,
         map,
-        Sprite::new(HUMAN_CHARACTER),
+        Sprite::Lerain,
         position,
         Health::new(1),
         CharacterType::Werewolf,
@@ -139,7 +140,7 @@ pub fn spawn_chest(
 ) {
     map.spawn(
         commands,
-        Sprite::new('M'),
+        Sprite::Chest,
         position,
         Velocity::default(),
         CollisionType::Solid,

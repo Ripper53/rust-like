@@ -13,19 +13,21 @@ impl FromWorld for PlayerInput {
     }
 }
 
-#[derive(Component, Clone, Copy)]
-pub struct Sprite {
-    pub character: char,
+#[derive(Component, Clone, Copy, Eq, PartialEq)]
+pub enum Sprite {
+    Player,
+    Lerain,
+    Rumdare,
+    Werewolf,
+
+    Projectile,
+    Chest,
+    Unknown,
 }
 impl Sprite {
-    pub fn new(character: char) -> Sprite {
-        Sprite {
-            character,
-        }
-    }
-    pub fn set_character(&mut self, character: char, map: &mut Map, position: &Position) {
-        if self.character == character { return; }
-        self.character = character;
+    pub fn set_sprite(&mut self, sprite: Sprite, map: &mut Map, position: &Position) {
+        if *self == sprite { return; }
+        *self = sprite;
         if let Some(Tile::Ground { occupier, .. }) = map.get_mut(position.x as usize, position.y as usize) {
             if let Some(occupier) = occupier {
                 occupier.sprite = self.clone();
@@ -119,17 +121,6 @@ pub enum CharacterType {
 pub enum WereForm {
     Human(HumanState),
     Beast,
-}
-impl PartialEq for WereForm {
-    fn eq(&self, other: &Self) -> bool {
-        match self {
-            WereForm::Human(_) => matches!(other, WereForm::Human(_)),
-            WereForm::Beast => matches!(other, WereForm::Beast),
-        }
-    }
-    fn ne(&self, other: &Self) -> bool {
-        !self.eq(other)
-    }
 }
 #[derive(Component, Debug)]
 pub enum CharacterData {
@@ -255,7 +246,7 @@ fn check_collision_and_move(
                 *occupier = if let Some(s) = sprite {
                     Some(Occupier::new(entity, *s, collision.collision_type.clone(), character_type))
                 } else {
-                    Some(Occupier::new(entity, Sprite::new('?'), collision.collision_type.clone(), character_type))
+                    Some(Occupier::new(entity, Sprite::Unknown, collision.collision_type.clone(), character_type))
                 };
                 *current_position = new_position.clone();
                 CollisionCheckResult::NoCollision

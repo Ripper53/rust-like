@@ -1,6 +1,10 @@
 use bevy::prelude::*;
-
-use crate::{character::{PlayerTag, Health, Sprite, ActionHistory}, ActionInput, physics::{Map, Position, Velocity}, util::spawn_projectile};
+use crate::{
+    character::{PlayerTag, Health, Sprite, ActionHistory},
+    physics::{Map, Position, Velocity},
+    ActionInput,
+    util::spawn_projectile,
+};
 
 #[derive(Clone)]
 pub enum Item {
@@ -140,7 +144,7 @@ pub fn inventory_update(
                                     spawn_projectile(
                                         &mut commands,
                                         &mut map,
-                                        Sprite::new('o'),
+                                        Sprite::Projectile,
                                         *position + movement,
                                         Velocity::new(latest_movement_input.clone(), *speed),
                                         *damage,

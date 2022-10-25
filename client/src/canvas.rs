@@ -1,6 +1,8 @@
 use bevy::prelude::World;
-use common::{physics::{Map, Tile, Position, MapCache}, behaviors::pathfinder::data::PathfinderGlobalData};
+use common::{physics::{Map, Tile, Position, MapCache, Occupier}, behaviors::pathfinder::data::PathfinderGlobalData};
 use tui::{widgets::{Widget, Paragraph, Block, Borders}, style::{Style, Color}, text::{Span, Spans}};
+
+use crate::constants::sprite_to_str;
 
 pub struct MapCanvas<'a> {
     pub world: &'a mut World,
@@ -8,6 +10,18 @@ pub struct MapCanvas<'a> {
     pub vision_position: Position,
 }
 
+fn get_sprite_from_occupier<'a>(occupier: &Option<Occupier>, none_text: &'static str) -> Span<'a> {
+    if let Some(occupier) = occupier {
+        let (txt, color) = sprite_to_str(&occupier.sprite);
+        if let Some(color) = color {
+            Span::styled(txt, Style::default().fg(color))
+        } else {
+            Span::raw(txt)
+        }
+    } else {
+        Span::raw(none_text)
+    }
+}
 const DEBUG: bool = true;
 impl<'a> Widget for MapCanvas<'a> {
     fn render(self, area: tui::layout::Rect, buf: &mut tui::buffer::Buffer) {
@@ -65,19 +79,11 @@ impl<'a> Widget for MapCanvas<'a> {
                         let character = if /*in_vision.contains(&Position::new(x as i32, y as i32))*/ true {
                             match tile {
                                 Tile::Ground { occupier, .. } => {
-                                    if let Some(occupier) = occupier {
-                                        Span::raw(occupier.sprite.character.to_string())
-                                    } else {
-                                        Span::raw(" ")
-                                    }
+                                    get_sprite_from_occupier(occupier, " ")
                                 },
                                 Tile::Wall => Span::raw("#"),
                                 Tile::Obstacle { occupier } => {
-                                    if let Some(occupier) = occupier {
-                                        Span::raw(occupier.sprite.character.to_string())
-                                    } else {
-                                        Span::raw("%")
-                                    }
+                                    get_sprite_from_occupier(occupier, "%")
                                 },
                             }
                         } else {

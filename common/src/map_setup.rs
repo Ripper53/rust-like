@@ -1,6 +1,6 @@
 use bevy::prelude::Commands;
 
-use crate::{physics::{Map, Tile, Position, Zone, KrillTheaterZone}, behaviors::pathfinder::data::PathfinderGlobalData, util::{spawn_chest, spawn_werewolf}, inventory::{Inventory, Item}, character::Health};
+use crate::{physics::{Map, Tile, Position, Zone, KrillTheaterZone}, behaviors::pathfinder::data::PathfinderGlobalData, util::{spawn_chest, spawn_werewolf, spawn_lerain}, inventory::{Inventory, Item}, character::Health};
 
 impl Map {
     fn create_room<F: Fn(&mut Tile)>(&mut self, bottom_left: Position, top_right: Position, border_tile: Tile, place_tile: F) {
@@ -222,6 +222,13 @@ pub fn town(commands: &mut Commands, map: &mut Map, data: &PathfinderGlobalData)
             Box::new(Item::new_pistol()),
         ],
     ));
+    let position = Position::new(200, 72);
+    home(map, position, position + Position::new(10, 10), Zone::Home);
+    home_entrance(map, position + Position::new(0, 2));
+    let position = Position::new(186, 72);
+    home(map, position, position + Position::new(10, 10), Zone::Home);
+    home_entrance(map, position + Position::new(0, 2));
+    home_entrance(map, position + Position::new(10, 2));
 
     obstacle(map, Position::new(12, 38), Position::new(13, 46));
     for pos in [Position::new(18, 38), Position::new(21, 38), Position::new(24, 38), Position::new(27, 38)] {
@@ -230,7 +237,7 @@ pub fn town(commands: &mut Commands, map: &mut Map, data: &PathfinderGlobalData)
 
     map.spawn_character(
         commands,
-        crate::character::Sprite::new('@'),
+        crate::character::Sprite::Player,
         Position::new(50, 2),
         Health::new(4),
         crate::character::CharacterType::Player,
@@ -242,6 +249,6 @@ pub fn town(commands: &mut Commands, map: &mut Map, data: &PathfinderGlobalData)
     //spawn_lerain(&mut commands, &mut map, Position::new(50, 8));
     //spawn_lerain(&mut commands, &mut map, Position::new(20, 40));
     //spawn_lerain(&mut commands, &mut map, Position::new(30, 10));
-    //spawn_lerain(&mut commands, &mut map, Position::new(25, 20));
+    //spawn_lerain(commands, map, Position::new(25, 20));
     spawn_werewolf(commands, map, Position::new(2, 4));
 }
