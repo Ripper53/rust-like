@@ -63,5 +63,5 @@ pub enum NewObjective {
 #[derive(Debug)]
 pub enum WerewolfState {
     Hunt(Option<Position>),
-    Panic,
+    Panic((Option<Position>, Option<usize>)),
 }

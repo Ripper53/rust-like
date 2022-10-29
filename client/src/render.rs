@@ -159,6 +159,7 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
     let menu_titles = vec!["World", "Inventory", "Settings"];
     let mut data = Data::default();
 
+    let mut map_cache = MapCache::default();
     // Render
     loop {
         terminal.draw(|rect| {
@@ -281,6 +282,7 @@ fn setup_game(app: &mut App) -> Result<(), Box<dyn std::error::Error>> {
                             world: &mut app.world,
                             center_position,
                             vision_position,
+                            map_cache: &mut map_cache,
                         };
                         rect.render_widget(canvas, main_layout[1]);
                     }

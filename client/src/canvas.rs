@@ -8,6 +8,7 @@ pub struct MapCanvas<'a> {
     pub world: &'a mut World,
     pub center_position: Position,
     pub vision_position: Position,
+    pub map_cache: &'a mut MapCache,
 }
 
 fn get_sprite_from_occupier<'a>(occupier: &Option<Occupier>, none_text: &'static str) -> Span<'a> {
@@ -63,8 +64,7 @@ impl<'a> Widget for MapCanvas<'a> {
         };
 
         let mut text = Vec::<Spans>::with_capacity(size_y);
-        //let mut map_cache = self.world.resource_mut::<MapCache>();
-        //let in_vision = map.get_in_vision(&mut MapCache::default(), self.vision_position);
+        let in_vision = map.get_in_vision(self.map_cache, self.vision_position);
         let pathfinder_data = self.world.resource::<PathfinderGlobalData>();
         for y in start_y..size_y {
             let mut t = Vec::<Span>::with_capacity(size_x);
@@ -76,7 +76,7 @@ impl<'a> Widget for MapCanvas<'a> {
                         let character = Span::raw(a.unwrap().to_string());
                         t.push(character);
                     } else {
-                        let character = if /*in_vision.contains(&Position::new(x as i32, y as i32))*/ true {
+                        let character = if DEBUG || in_vision.contains(&Position::new(x as i32, y as i32)) {
                             match tile {
                                 Tile::Ground { occupier, .. } => {
                                     get_sprite_from_occupier(occupier, " ")

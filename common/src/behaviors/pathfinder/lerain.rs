@@ -69,7 +69,7 @@ pub fn human_pathfinder(
                                 set_goal(
                                     state,
                                     behavior,
-                                    data.get_target(super::data::CharacterType::Lerain),
+                                    data.get_target(CharacterType::Lerain),
                                     Priority::Low,
                                 );
                             },
@@ -87,7 +87,7 @@ pub fn human_pathfinder(
                                         set_goal(
                                             state,
                                             behavior,
-                                            data.get_target_except(super::data::CharacterType::Lerain, index),
+                                            data.get_target_except(CharacterType::Lerain, index),
                                             Priority::Medium,
                                         );
                                     }
@@ -95,7 +95,7 @@ pub fn human_pathfinder(
                                     set_goal(
                                         state,
                                         behavior,
-                                        data.get_target(super::data::CharacterType::Lerain),
+                                        data.get_target(CharacterType::Lerain),
                                         Priority::Medium,
                                     );
                                 }
@@ -104,7 +104,7 @@ pub fn human_pathfinder(
                     } else if let Some(o) = objective {
                         match o {
                             NewObjective::WanderButExclude(index) => {
-                                let goal = data.get_target_except(super::data::CharacterType::Lerain, *index);
+                                let goal = data.get_target_except(CharacterType::Lerain, *index);
                                 set_goal(state, behavior, goal, Priority::Low);
                             },
                         }
@@ -112,7 +112,7 @@ pub fn human_pathfinder(
                         set_goal(
                             state,
                             behavior,
-                            data.get_target(super::data::CharacterType::Lerain),
+                            data.get_target(CharacterType::Lerain),
                             Priority::Low,
                         );
                     }

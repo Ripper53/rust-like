@@ -246,9 +246,9 @@ pub fn town(commands: &mut Commands, map: &mut Map, data: &PathfinderGlobalData)
             entity_commands.insert(crate::character::PlayerTag);
         },
     );
-    //spawn_lerain(&mut commands, &mut map, Position::new(50, 8));
-    //spawn_lerain(&mut commands, &mut map, Position::new(20, 40));
-    //spawn_lerain(&mut commands, &mut map, Position::new(30, 10));
-    //spawn_lerain(commands, map, Position::new(25, 20));
+    spawn_lerain(commands, map, Position::new(50, 8));
+    spawn_lerain(commands, map, Position::new(20, 40));
+    spawn_lerain(commands, map, Position::new(30, 10));
+    spawn_lerain(commands, map, Position::new(25, 20));
     spawn_werewolf(commands, map, Position::new(2, 4));
 }

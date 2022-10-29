@@ -79,33 +79,44 @@ pub fn werewolf_update(
                     }
                     None
                 };
-                let new_form = if character_count == BEAST_FORM_COUNT {
-                    *state = if let Some(target) = nearest_target {
-                        WerewolfState::Hunt(Some(target))
+                let can_change_form = if let WerewolfState::Panic(target) = state {
+                    if let Some(target) = target.0 {
+                        *position == target
                     } else {
-                        WerewolfState::Hunt(None)
-                    };
-                    set_form(WereForm::Beast)
-                } else if character_count > BEAST_FORM_COUNT {
-                    *state = WerewolfState::Panic;
-                    set_form(WereForm::Beast)
-                } else if check(state, position) {
-                    set_form(WereForm::Human(crate::map_brain::HumanState::Idle(None)))
+                        true
+                    }
                 } else {
-                    None
+                    true
                 };
-
-                if let Some(new_form) = new_form {
-                    *form = new_form;
-                    match form {
-                        WereForm::Human(_) => {
-                            sprite.set_sprite(Sprite::Lerain, &mut map, position);
-                            pathfinder.behavior.set_skip_turn(HUMAN_SKIP_AT);
-                        },
-                        WereForm::Beast => {
-                            sprite.set_sprite(Sprite::Werewolf, &mut map, position);
-                            pathfinder.behavior.set_skip_turn(WEREWOLF_SKIP_AT);
-                        },
+                if can_change_form {
+                    let new_form = if character_count == BEAST_FORM_COUNT {
+                        *state = if let Some(target) = nearest_target {
+                            WerewolfState::Hunt(Some(target))
+                        } else {
+                            WerewolfState::Hunt(None)
+                        };
+                        set_form(WereForm::Beast)
+                    } else if character_count > BEAST_FORM_COUNT {
+                        *state = WerewolfState::Panic((None, None));
+                        set_form(WereForm::Beast)
+                    } else if check(state, position) {
+                        set_form(WereForm::Human(crate::map_brain::HumanState::Idle(None)))
+                    } else {
+                        None
+                    };
+    
+                    if let Some(new_form) = new_form {
+                        *form = new_form;
+                        match form {
+                            WereForm::Human(_) => {
+                                sprite.set_sprite(Sprite::Lerain, &mut map, position);
+                                pathfinder.behavior.set_skip_turn(HUMAN_SKIP_AT);
+                            },
+                            WereForm::Beast => {
+                                sprite.set_sprite(Sprite::Werewolf, &mut map, position);
+                                pathfinder.behavior.set_skip_turn(WEREWOLF_SKIP_AT);
+                            },
+                        }
                     }
                 }
             }

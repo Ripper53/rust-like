@@ -37,12 +37,20 @@ pub fn werewolf_pathfinder(
                                 behavior.set_goal(position.clone(), super::Priority::Medium);
                             }
                         },
-                        WerewolfState::Panic => {
-                            /*behavior.set_goal(Position::new(0, 0), super::Priority::Low).reach_goal_then(|params| {
-                                if let CharacterBehaviorData::Werewolf { state } = params.character_behavior_data {
-                                    
-                                }
-                            });*/
+                        WerewolfState::Panic(target) => {
+                            let target = if let Some(target) = target.0 {
+                                target.clone()
+                            } else {
+                                let target = if let Some(except) = target.1 {
+                                    data.get_hiding_target_except(character_type.clone(), except)
+                                } else {
+                                    data.get_hiding_target(character_type.clone())
+                                };
+                                let position = target.0.clone();
+                                *state = WerewolfState::Panic((Some(target.0), Some(target.1)));
+                                position
+                            };
+                            behavior.set_goal(target, super::Priority::Medium);
                         },
                     }
                 }
