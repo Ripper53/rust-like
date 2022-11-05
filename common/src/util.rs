@@ -94,9 +94,7 @@ pub fn spawn_werewolf(commands: &mut Commands, map: &mut Map, position: Position
         position,
         Health::new(1),
         CharacterType::Werewolf,
-        CharacterData::Werewolf {
-            form: crate::character::WereForm::Human(crate::map_brain::HumanState::Idle(None)),
-        },
+        CharacterData::Werewolf { form: crate::character::WereForm::Human },
         |mut entity_commands| {
             entity_commands
                 .insert(CharacterBehaviorData::default_werewolf())
@@ -150,4 +148,19 @@ pub fn spawn_chest(
                 .insert(inventory);
         },
     );
+}
+
+#[derive(Debug)]
+pub struct Cooldown(pub usize);
+impl Cooldown {
+    /// Decrements counter.
+    /// Returns false if still on cooldown, otherwise true.
+    pub fn execute(&mut self) -> bool {
+        if self.0 > 1 {
+            self.0 -= 1;
+            false
+        } else {
+            true
+        }
+    }
 }

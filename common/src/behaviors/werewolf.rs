@@ -3,7 +3,7 @@ use crate::{
     map_brain::{BehaviorData, CharacterBehaviorData, WerewolfState},
     character::{CharacterData, Sprite, WereForm, Health},
     physics::{Map, Position, MapCache, Tile},
-    constants::{WEREWOLF_SKIP_AT, HUMAN_SKIP_AT},
+    constants::{WEREWOLF_SKIP_AT, HUMAN_SKIP_AT}, util::Cooldown,
 };
 use super::pathfinder::PathfinderBehavior;
 
@@ -30,8 +30,8 @@ pub fn werewolf_update(
 ) {
     for (mut character_data, mut character_behavior_data, mut sprite, position, mut pathfinder) in query.iter_mut() {
         if let CharacterData::Werewolf { form } = character_data.as_mut() {
-            if let CharacterBehaviorData::Werewolf { state } = character_behavior_data.as_mut() {
-                // Attack
+            // Attack
+            if matches!(form, WereForm::Beast) {
                 for attack_offset in [Position::new(0, 1), Position::new(1, 0), Position::new(0, -1), Position::new(-1, 0)] {
                     let p = *position + attack_offset;
                     if let Some(Tile::Ground { occupier, .. }) = map.get(p.x as usize, p.y as usize) {
@@ -42,7 +42,8 @@ pub fn werewolf_update(
                         }
                     }
                 }
-
+            }
+            if let CharacterBehaviorData::Werewolf { werewolf_state, human_state } = character_behavior_data.as_mut() {
                 // Transition Forms
                 let in_vision = map.get_in_vision(&mut map_cache, position.clone());
                 let mut character_count = 0;
@@ -70,7 +71,7 @@ pub fn werewolf_update(
 
                 let set_form = |new_form: WereForm| {
                     match new_form {
-                        WereForm::Human(_) => if !matches!(form, WereForm::Human(_)) {
+                    WereForm::Human => if !matches!(form, WereForm::Human) {
                             return Some(new_form);
                         },
                         WereForm::Beast => if !matches!(form, WereForm::Beast) {
@@ -79,9 +80,9 @@ pub fn werewolf_update(
                     }
                     None
                 };
-                let can_change_form = if let WerewolfState::Panic(target) = state {
-                    if let Some(target) = target.0 {
-                        *position == target
+                let can_change_form = if let WerewolfState::Panic { target, .. } = werewolf_state {
+                    if let Some(target) = target {
+                        position == target
                     } else {
                         true
                     }
@@ -90,27 +91,33 @@ pub fn werewolf_update(
                 };
                 if can_change_form {
                     let new_form = if character_count == BEAST_FORM_COUNT {
-                        *state = if let Some(target) = nearest_target {
+                        *werewolf_state = if let Some(target) = nearest_target {
                             WerewolfState::Hunt(Some(target))
                         } else {
                             WerewolfState::Hunt(None)
                         };
                         set_form(WereForm::Beast)
                     } else if character_count > BEAST_FORM_COUNT {
-                        *state = WerewolfState::Panic((None, None));
+                        *werewolf_state = WerewolfState::Panic {
+                            target: None,
+                            exclude_target_index: None,
+                            calm_cooldown: Cooldown(0),
+                        };
                         set_form(WereForm::Beast)
-                    } else if check(state, position) {
-                        set_form(WereForm::Human(crate::map_brain::HumanState::Idle(None)))
+                    } else if check(werewolf_state, position) {
+                        *werewolf_state = WerewolfState::Hunt(None);
+                        set_form(WereForm::Human)
                     } else {
                         None
                     };
-    
+
                     if let Some(new_form) = new_form {
                         *form = new_form;
                         match form {
-                            WereForm::Human(_) => {
+                            WereForm::Human => {
                                 sprite.set_sprite(Sprite::Lerain, &mut map, position);
                                 pathfinder.behavior.set_skip_turn(HUMAN_SKIP_AT);
+                                *human_state = crate::map_brain::HumanState::Idle(None);
                             },
                             WereForm::Beast => {
                                 sprite.set_sprite(Sprite::Werewolf, &mut map, position);

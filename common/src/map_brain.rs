@@ -1,5 +1,5 @@
 use bevy::prelude::Component;
-use crate::physics::Position;
+use crate::{physics::Position, util::Cooldown};
 
 #[derive(Component)]
 pub struct BehaviorData<T> {
@@ -31,18 +31,19 @@ impl<T> BehaviorData<T> {
 #[derive(Component, Debug)]
 pub enum CharacterBehaviorData {
     Human {
-        state: HumanState,
+        human_state: HumanState,
     },
     Werewolf {
-        state: WerewolfState,
+        werewolf_state: WerewolfState,
+        human_state: HumanState,
     },
 }
 impl CharacterBehaviorData {
     pub const fn default_human() -> Self {
-        CharacterBehaviorData::Human { state: HumanState::Idle(None) }
+        CharacterBehaviorData::Human { human_state: HumanState::Idle(None) }
     }
     pub const fn default_werewolf() -> Self {
-        CharacterBehaviorData::Werewolf { state: WerewolfState::Hunt(None) }
+        CharacterBehaviorData::Werewolf { werewolf_state: WerewolfState::Hunt(None), human_state: HumanState::Idle(None) }
     }
 }
 #[derive(Debug)]
@@ -63,5 +64,10 @@ pub enum NewObjective {
 #[derive(Debug)]
 pub enum WerewolfState {
     Hunt(Option<Position>),
-    Panic((Option<Position>, Option<usize>)),
+    Panic {
+        target: Option<Position>,
+        exclude_target_index: Option<usize>,
+        /// Moves before panicking stops.
+        calm_cooldown: Cooldown,
+    },
 }

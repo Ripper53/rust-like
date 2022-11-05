@@ -119,7 +119,7 @@ pub enum CharacterType {
 
 #[derive(Debug)]
 pub enum WereForm {
-    Human(HumanState),
+    Human,
     Beast,
 }
 #[derive(Component, Debug)]

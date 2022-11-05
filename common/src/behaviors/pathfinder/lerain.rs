@@ -9,9 +9,9 @@ use super::{PathfinderBehavior, util::get_pathfinder_target, data::PathfinderGlo
 fn set_goal(state: &mut HumanState, behavior: &mut PathfinderBehavior, goal: (Position, usize), priority: Priority) {
     *state = HumanState::Moving(goal.1);
     behavior.set_goal(goal.0, priority).reach_goal_then(|params| {
-        if let CharacterBehaviorData::Human { state } = params.character_behavior_data {
-            if let HumanState::Moving(index) = state {
-                *state = HumanState::Idle(Some(NewObjective::WanderButExclude(*index)));
+        if let CharacterBehaviorData::Human { human_state } | CharacterBehaviorData::Werewolf { human_state, .. } = params.character_behavior_data {
+            if let HumanState::Moving(index) = human_state {
+                *human_state = HumanState::Idle(Some(NewObjective::WanderButExclude(*index)));
             }
         }
     });
@@ -28,7 +28,7 @@ pub fn lerain_pathfinder(
     position: &Position,
     query: &Query<(&CharacterType, &Position)>,
 ) {
-    if let CharacterBehaviorData::Human { state } = character_behavior_data {
+    if let CharacterBehaviorData::Human { human_state: state } = character_behavior_data {
         human_pathfinder(
             state,
             data,

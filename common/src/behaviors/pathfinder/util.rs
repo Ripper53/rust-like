@@ -15,7 +15,8 @@ pub fn get_pathfinder_target(
     let mut found_target = false;
     let in_vision = map.get_in_vision(map_cache, position.clone());
     let mut check_found_target = |pos: &Position, character_type: &CharacterType| {
-        found_target = in_vision.contains(pos) && matches!(character_type, CharacterType::Werewolf);
+        //found_target = in_vision.contains(pos) && matches!(character_type, CharacterType::Werewolf);
+        found_target = false;
     };
     if let Some((_, target)) = search_query.iter().min_by(|(type_a, pos_a), (type_b, pos_b)| {
         if **type_a == target_character_type {
