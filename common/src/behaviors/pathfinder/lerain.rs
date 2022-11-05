@@ -1,7 +1,7 @@
 use bevy::prelude::Query;
 use crate::{
-    physics::{Map, MapCache, Position, KrillTheaterZone},
-    character::{CharacterType, CharacterData},
+    physics::{Map, MapCache, Position, KrillTheaterZone, Tile, Occupier},
+    character::{CharacterType, CharacterData, self},
     map_brain::{CharacterBehaviorData, HumanState, NewObjective},
 };
 use super::{PathfinderBehavior, util::get_pathfinder_target, data::PathfinderGlobalData, Priority};
@@ -30,6 +30,7 @@ pub fn lerain_pathfinder(
 ) {
     if let CharacterBehaviorData::Human { human_state: state } = character_behavior_data {
         human_pathfinder(
+            character_type,
             state,
             data,
             behavior,
@@ -43,6 +44,7 @@ pub fn lerain_pathfinder(
 }
 
 pub fn human_pathfinder(
+    character_type: &CharacterType,
     state: &mut HumanState,
     data: &PathfinderGlobalData,
     behavior: &mut PathfinderBehavior,
@@ -119,7 +121,34 @@ pub fn human_pathfinder(
                 }
             }
         },
-        HumanState::Moving(_index) => {},
-        HumanState::Panic => {},
+        HumanState::Moving(index) => {
+            match character_type {
+                CharacterType::Player => {},
+                CharacterType::Lerain | CharacterType::Rumdare => {
+                    let vision = map.get_in_vision(map_cache, *position);
+                    for p in vision.iter() {
+                        if let Some(Tile::Ground { occupier, .. } | Tile::Obstacle { occupier }) = map.get(p.x as usize, p.y as usize) {
+                            if let Some(Occupier { character_type: Some(CharacterType::Werewolf), .. }) = occupier {
+                                /* TO SET PANIC GOAL */
+                                *state = HumanState::Panic(*index);
+                                break;
+                            }
+                        }
+                    }
+                },
+                CharacterType::Werewolf => { /* TODO */},
+            }
+        },
+        HumanState::Panic(index) => {
+            // TODO, CREATE PANIC BEHAVIOR FOR HUMANS (or when werewolf is in its HUMAN FORM)!
+            match character_type {
+                CharacterType::Player => {},
+                CharacterType::Lerain | CharacterType::Rumdare => {
+                    /* TODO REWORK */
+                    *state = HumanState::Idle(Some(NewObjective::WanderButExclude(*index)));
+                },
+                CharacterType::Werewolf => {},
+            }
+        },
     }
 }

@@ -52,7 +52,7 @@ pub enum HumanState {
     /// Moving to objective from index.
     Moving(usize),
     /// Saw beast and is unarmed or outnumbered!
-    Panic,
+    Panic(usize),
 }
 #[derive(Debug)]
 pub enum NewObjective {

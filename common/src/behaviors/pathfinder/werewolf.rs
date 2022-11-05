@@ -18,6 +18,7 @@ pub fn werewolf_pathfinder(
             WereForm::Human => {
                 if let CharacterBehaviorData::Werewolf { human_state, .. } = character_behavior_data {
                     human_pathfinder(
+                        character_type,
                         human_state,
                         data,
                         behavior,
@@ -49,9 +50,9 @@ pub fn werewolf_pathfinder(
                                 }
                             } else {
                                 let target = if let Some(except) = exclude_target_index {
-                                    data.get_hiding_target_except(character_type.clone(), *except)
+                                    data.werewolf.get_hiding_target_except(character_type.clone(), *except)
                                 } else {
-                                    data.get_hiding_target(character_type.clone())
+                                    data.werewolf.get_hiding_target(character_type.clone())
                                 };
                                 let position = target.0.clone();
                                 *werewolf_state = WerewolfState::Panic {
