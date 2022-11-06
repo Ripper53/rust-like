@@ -1,7 +1,7 @@
 use bevy::prelude::Query;
 use crate::{
     physics::{Map, MapCache, Position, KrillTheaterZone, Tile, Occupier},
-    character::{CharacterType, CharacterData, self},
+    character::{CharacterType, CharacterData},
     map_brain::{CharacterBehaviorData, HumanState, NewObjective},
 };
 use super::{PathfinderBehavior, util::get_pathfinder_target, data::PathfinderGlobalData, Priority};
@@ -128,9 +128,12 @@ pub fn human_pathfinder(
                     let vision = map.get_in_vision(map_cache, *position);
                     for p in vision.iter() {
                         if let Some(Tile::Ground { occupier, .. } | Tile::Obstacle { occupier }) = map.get(p.x as usize, p.y as usize) {
+                            let self_character_type = character_type;
                             if let Some(Occupier { character_type: Some(CharacterType::Werewolf), .. }) = occupier {
                                 /* TO SET PANIC GOAL */
-                                *state = HumanState::Panic(*index);
+                                let (position, index) = data.human.get_hiding_target(self_character_type.clone());
+                                behavior.set_goal(position, Priority::High);
+                                *state = HumanState::Panic(index);
                                 break;
                             }
                         }

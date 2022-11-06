@@ -6,12 +6,9 @@ use crate::{physics::Position, character::CharacterType};
 // NPC MORE LIKELY TO OCCUR!
 pub struct PathfinderGlobalData {
     points: [Vec<Position>; 2],
-    pub werewolf: WerewolfPathfinderGlobalData,
     krill_exit_points: [Position; 3],
-}
-
-pub struct WerewolfPathfinderGlobalData {
-    hiding_points: [Vec<Position>; 2],
+    pub human: HumanPathfinderGlobalData,
+    pub werewolf: WerewolfPathfinderGlobalData,
 }
 
 fn get_point<const T: usize>(
@@ -52,6 +49,23 @@ fn get_point_except<const T: usize>(
             (points[i0][i1], i0)
         },
     }
+}
+
+pub struct HumanPathfinderGlobalData {
+    hiding_points: [Vec<Position>; 2],
+}
+
+impl HumanPathfinderGlobalData {
+    pub fn get_hiding_target(&self, character_type: CharacterType) -> (Position, usize) {
+        get_point(character_type, &self.hiding_points)
+    }
+    pub fn get_hiding_target_except(&self, character_type: CharacterType, exclude_index: usize) -> (Position, usize) {
+        get_point_except(character_type, &self.hiding_points, exclude_index)
+    }
+}
+
+pub struct WerewolfPathfinderGlobalData {
+    hiding_points: [Vec<Position>; 2],
 }
 
 impl WerewolfPathfinderGlobalData {
@@ -112,6 +126,16 @@ impl FromWorld for PathfinderGlobalData {
             Position::new(68, 10),
             Position::new(150, 10),
         ];
+        let human = HumanPathfinderGlobalData {
+            hiding_points: [
+                vec![
+                    Position::new(30, 30),
+                ],
+                vec![
+                    Position::new(201, 73),
+                ],
+            ]
+        };
         let werewolf = WerewolfPathfinderGlobalData {
             hiding_points: [
                 vec![
@@ -124,8 +148,9 @@ impl FromWorld for PathfinderGlobalData {
         };
         PathfinderGlobalData {
             points,
-            werewolf,
             krill_exit_points,
+            human,
+            werewolf,
         }
     }
 }
