@@ -47,6 +47,7 @@ pub fn werewolf_update(
                 // Transition Forms
                 let in_vision = map.get_in_vision(&mut map_cache, position.clone());
                 let mut character_count = 0;
+                let mut enemies = Vec::new();
                 const BEAST_FORM_COUNT: u32 = 1;
                 let mut nearest_target: Option<Position> = None;
                 for p in in_vision {
@@ -61,9 +62,7 @@ pub fn werewolf_update(
                                     nearest_target = Some(p.clone());
                                 }
                                 character_count += 1;
-                                if character_count > BEAST_FORM_COUNT {
-                                    break;
-                                }
+                                enemies.push(position.clone());
                             }
                         }
                     }
@@ -71,7 +70,7 @@ pub fn werewolf_update(
 
                 let set_form = |new_form: WereForm| {
                     match new_form {
-                    WereForm::Human => if !matches!(form, WereForm::Human) {
+                        WereForm::Human => if !matches!(form, WereForm::Human) {
                             return Some(new_form);
                         },
                         WereForm::Beast => if !matches!(form, WereForm::Beast) {
@@ -101,6 +100,7 @@ pub fn werewolf_update(
                         *werewolf_state = WerewolfState::Panic {
                             target: None,
                             exclude_target_index: None,
+                            enemies,
                             calm_cooldown: Cooldown(0),
                         };
                         set_form(WereForm::Beast)

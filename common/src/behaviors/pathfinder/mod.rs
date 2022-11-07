@@ -113,6 +113,7 @@ impl PathfinderBehavior {
         self.reach_goal_then(|_| {});
     }
 
+    /// Is our current goal at the position given?
     pub fn is_at(&self, position: Position) -> bool {
         self.pathfinder.current_goal == position
     }

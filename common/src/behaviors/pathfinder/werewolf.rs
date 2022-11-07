@@ -40,7 +40,7 @@ pub fn werewolf_pathfinder(
                                 behavior.set_goal(position.clone(), super::Priority::Medium);
                             }
                         },
-                        WerewolfState::Panic { target, exclude_target_index, calm_cooldown } => {
+                        WerewolfState::Panic { target, enemies, exclude_target_index, calm_cooldown } => {
                             let target = if let Some(target) = target {
                                 if calm_cooldown.execute() {
                                     Some(target.clone())
@@ -49,15 +49,26 @@ pub fn werewolf_pathfinder(
                                     None
                                 }
                             } else {
+                                let target = data.werewolf.panic((character_type.clone(), *position));
                                 let target = if let Some(except) = exclude_target_index {
-                                    data.werewolf.get_hiding_target_except(character_type.clone(), *except)
+                                    if enemies.len() == 0 {
+                                        target.get_except(*except)
+                                    } else {
+                                        target.enemy(enemies[0]).get_except(*except)
+                                    }
+                                    
                                 } else {
-                                    data.werewolf.get_hiding_target(character_type.clone())
+                                    if enemies.len() == 0 {
+                                        target.get()
+                                    } else {
+                                        target.enemy(enemies[0]).get()
+                                    }
                                 };
                                 let position = target.0.clone();
                                 *werewolf_state = WerewolfState::Panic {
                                     target: Some(target.0),
                                     exclude_target_index: Some(target.1),
+                                    enemies: enemies.clone(),
                                     calm_cooldown: Cooldown(position.distance(&target.0) as usize),
                                 };
                                 Some(position)

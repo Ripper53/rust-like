@@ -71,7 +71,7 @@ pub fn human_pathfinder(
                                 set_goal(
                                     state,
                                     behavior,
-                                    data.get_target(CharacterType::Lerain),
+                                    data.target(CharacterType::Lerain).get(),
                                     Priority::Low,
                                 );
                             },
@@ -89,7 +89,7 @@ pub fn human_pathfinder(
                                         set_goal(
                                             state,
                                             behavior,
-                                            data.get_target_except(CharacterType::Lerain, index),
+                                            data.target(CharacterType::Lerain).get_except(index),
                                             Priority::Medium,
                                         );
                                     }
@@ -97,7 +97,7 @@ pub fn human_pathfinder(
                                     set_goal(
                                         state,
                                         behavior,
-                                        data.get_target(CharacterType::Lerain),
+                                        data.target(CharacterType::Lerain).get(),
                                         Priority::Medium,
                                     );
                                 }
@@ -106,7 +106,7 @@ pub fn human_pathfinder(
                     } else if let Some(o) = objective {
                         match o {
                             NewObjective::WanderButExclude(index) => {
-                                let goal = data.get_target_except(CharacterType::Lerain, *index);
+                                let goal = data.target(CharacterType::Lerain).get_except(*index);
                                 set_goal(state, behavior, goal, Priority::Low);
                             },
                         }
@@ -114,7 +114,7 @@ pub fn human_pathfinder(
                         set_goal(
                             state,
                             behavior,
-                            data.get_target(CharacterType::Lerain),
+                            data.target(CharacterType::Lerain).get(),
                             Priority::Low,
                         );
                     }
@@ -129,9 +129,9 @@ pub fn human_pathfinder(
                     for p in vision.iter() {
                         if let Some(Tile::Ground { occupier, .. } | Tile::Obstacle { occupier }) = map.get(p.x as usize, p.y as usize) {
                             let self_character_type = character_type;
-                            if let Some(Occupier { character_type: Some(CharacterType::Werewolf), .. }) = occupier {
+                            if let Some(Occupier { character_type: Some(CharacterType::Werewolf),  .. }) = occupier {
                                 /* TO SET PANIC GOAL */
-                                let (position, index) = data.human.get_hiding_target(self_character_type.clone());
+                                let (position, index) = data.human.panic((self_character_type.clone(), *position)).enemy(*p).get();
                                 behavior.set_goal(position, Priority::High);
                                 *state = HumanState::Panic(index);
                                 break;
@@ -144,13 +144,15 @@ pub fn human_pathfinder(
         },
         HumanState::Panic(index) => {
             // TODO, CREATE PANIC BEHAVIOR FOR HUMANS (or when werewolf is in its HUMAN FORM)!
-            match character_type {
-                CharacterType::Player => {},
-                CharacterType::Lerain | CharacterType::Rumdare => {
-                    /* TODO REWORK */
-                    *state = HumanState::Idle(Some(NewObjective::WanderButExclude(*index)));
-                },
-                CharacterType::Werewolf => {},
+            if behavior.is_at(*position) {
+                match character_type {
+                    CharacterType::Player => {},
+                    CharacterType::Lerain | CharacterType::Rumdare => {
+                        /* TODO REWORK */
+                        *state = HumanState::Idle(Some(NewObjective::WanderButExclude(*index)));
+                    },
+                    CharacterType::Werewolf => {},
+                }
             }
         },
     }

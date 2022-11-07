@@ -67,6 +67,7 @@ pub enum WerewolfState {
     Panic {
         target: Option<Position>,
         exclude_target_index: Option<usize>,
+        enemies: Vec<Position>,
         /// Moves before panicking stops.
         calm_cooldown: Cooldown,
     },
