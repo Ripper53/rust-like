@@ -153,6 +153,7 @@ impl Position {
         add_to_neighbors(Position::new(self.x - 1, self.y));
         neighbors
     }
+    /// Squared distance. Use for comparing!
     pub fn distance(&self, position: &Position) -> u32 {
         let diff = position - self;
         (diff.x * diff.x) as u32 + (diff.y * diff.y) as u32

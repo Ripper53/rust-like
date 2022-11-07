@@ -136,15 +136,7 @@ impl<'a, const T: usize> GetPanicPointWithEnemy<'a, T> {
         }.get_except(exclude_index)
     }
     fn get_points(self) -> Vec<&'a Vec<Position>> {
-        self.panic_point.points.iter()
-            .min_by(|v1, v2| {
-                let point1 = v1[0];
-                let point2 = v2[0];
-                let dis1 = point1.distance(&self.panic_point.friendly.1);
-                let dis2 = point2.distance(&self.panic_point.friendly.1);
-                dis1.cmp(&dis2)
-            })
-            .into_iter()
+        self.panic_point.points.into_iter()
             .max_by(|v1, v2| {
                 let point1 = v1[0];
                 let point2 = v2[0];
