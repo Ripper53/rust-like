@@ -130,6 +130,33 @@ pub fn town(commands: &mut Commands, map: &mut Map, data: &PathfinderGlobalData)
             MAX_THEATER_POSITION,
             Zone::KrillTheater { zone: KrillTheaterZone::Free },
         );
+        
+        let mut theater_start = MIN_THEATER_POSITION + Position::new(3, 2);
+        for offset_x in [5, 5, 5, 5] {
+            for i in 0..4 {
+                let offset_y = i * 2;
+                let bottom_left = theater_start + Position::new(0, offset_y);
+                let top_right = theater_start + Position::new(offset_x, 0);
+                obstacle(map, bottom_left, top_right);
+                if let Some(tile) = map.get_mut(top_right.x as usize + 1, top_right.y as usize + offset_y as usize) {
+                    *tile = Tile::Wall;
+                }
+            }
+            theater_start.x += offset_x + 6;
+        }
+        let mut theater_start = Position::new(MAX_THEATER_POSITION.x - 3, MIN_THEATER_POSITION.y + 2);
+        for offset_x in [5, 5, 5, 5] {
+            for i in 0..4 {
+                let offset_y = i * 2;
+                let bottom_left = theater_start + Position::new(-offset_x, offset_y);
+                let top_right = theater_start;
+                obstacle(map, bottom_left, top_right);
+                if let Some(tile) = map.get_mut(bottom_left.x as usize - 1, top_right.y as usize + offset_y as usize) {
+                    *tile = Tile::Wall;
+                }
+            }
+            theater_start.x -= offset_x + 6;
+        }
 
         const MIN_KITCHEN_POSITION: Position = Position::new(4 + MIN_HOME_POSITION.x, MAX_HOME_POSITION.y - 4 - 14);
         const MAX_KITCHEN_POSITION: Position = Position::new(MIN_HOME_POSITION.x + 20, MAX_HOME_POSITION.y - 4);
@@ -177,12 +204,14 @@ pub fn town(commands: &mut Commands, map: &mut Map, data: &PathfinderGlobalData)
             // MAIN GATES
             (MIN_HOME_POSITION.x as usize + (HOME_WIDTH as usize / 2 as usize), MAX_HOME_POSITION.y as usize),
             (MIN_HOME_POSITION.x as usize + (HOME_WIDTH as usize / 2 as usize) + 1, MAX_HOME_POSITION.y as usize),
+            (MIN_HOME_POSITION.x as usize + (HOME_WIDTH as usize / 2 as usize) - 1, MAX_HOME_POSITION.y as usize),
             // BACK EXITS
             (MIN_HOME_POSITION.x as usize + 9, MIN_HOME_POSITION.y as usize),
             (MAX_HOME_POSITION.x as usize - 9, MIN_HOME_POSITION.y as usize),
             // THEATER GATES
             (MIN_THEATER_POSITION.x as usize + (THEATER_WIDTH as usize / 2 as usize), MAX_THEATER_POSITION.y as usize),
             (MIN_THEATER_POSITION.x as usize + (THEATER_WIDTH as usize / 2 as usize) + 1, MAX_THEATER_POSITION.y as usize),
+            (MIN_THEATER_POSITION.x as usize + (THEATER_WIDTH as usize / 2 as usize) - 1, MAX_THEATER_POSITION.y as usize),
             // KITCHEN DOOR
             (MAX_KITCHEN_POSITION.x as usize, MAX_KITCHEN_POSITION.y as usize - 2),
             // KITCHEN INNER-DOOR

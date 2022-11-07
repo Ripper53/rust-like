@@ -1,5 +1,4 @@
 use std::{time::{Duration, Instant}, thread, sync::mpsc::Receiver};
-
 use bevy::prelude::{App, ResMut, Query, With, CoreStage, State, Entity, World};
 use common::{physics::*, character::{PlayerInput, MovementInput, PlayerTag, ActionHistory, Health}, dialogue::Dialogue, inventory::{Inventory, Equipment}, ActionInput, Scene, PlayerState, loot_menu::{LootMenu, transfer_item}};
 use crossterm::{
@@ -13,7 +12,6 @@ use tui::{
     style::{Style, Modifier},
     text::{Spans, Span, Text}
 };
-
 use crate::{canvas::MapCanvas, util::render_inventory};
 
 enum Event<I> {
