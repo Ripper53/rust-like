@@ -141,17 +141,25 @@ impl<'a, const T: usize> GetPanicPointWithEnemy<'a, T> {
         let friendly_position = self.panic_point.friendly.1;
         let quadrant = friendly_position.quadrant(self.enemy_position);
         let optimal_quadrant = quadrant.opposite();
-        
-        self.panic_point.points.into_iter()
-            .max_by(|v1, v2| {
-                let point1 = v1[0];
-                let point2 = v2[0];
-                let dis1 = point1.distance(&self.enemy_position);
-                let dis2 = point2.distance(&self.enemy_position);
-                dis1.cmp(&dis2)
-            })
-            .into_iter()
-            .collect()
+        let goal = self.panic_point.points.into_iter()
+            .find(|points| {
+                let goal = points[0];
+                friendly_position.quadrant(goal).contains(optimal_quadrant)
+            });
+        if let Some(goal) = goal {
+            vec![goal]
+        } else {
+            self.panic_point.points.into_iter()
+                .max_by(|v1, v2| {
+                    let point1 = v1[0];
+                    let point2 = v2[0];
+                    let dis1 = point1.distance(&self.enemy_position);
+                    let dis2 = point2.distance(&self.enemy_position);
+                    dis1.cmp(&dis2)
+                })
+                .into_iter()
+                .collect()
+        }
     }
 }
 

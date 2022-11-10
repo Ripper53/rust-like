@@ -402,17 +402,22 @@ bitflags! {
 impl From<Quadrant> for Position {
     fn from(quadrant: Quadrant) -> Self {
         let mut position = Position::new(0, 0);
+        let mut add = |to_add: Position| {
+            position += to_add;
+            position.x = position.x.clamp(-1, 1);
+            position.y = position.y.clamp(-1, 1);
+        };
         if quadrant.contains(Quadrant::TOP_RIGHT) {
-            position += Position::new(1, 1);
+            add(Position::new(1, 1));
         }
         if quadrant.contains(Quadrant::BOTTOM_RIGHT) {
-            position += Position::new(1, -1);
+            add(Position::new(1, -1));
         }
         if quadrant.contains(Quadrant::BOTTOM_LEFT) {
-            position += Position::new(-1, -1);
+            add(Position::new(-1, -1));
         }
         if quadrant.contains(Quadrant::TOP_LEFT) {
-            position += Position::new(-1, 1);
+            add(Position::new(-1, 1));
         }
         position
     }
