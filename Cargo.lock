@@ -1040,6 +1040,7 @@ name = "common"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "bitflags",
  "crossterm",
  "pathfinding",
  "rand",

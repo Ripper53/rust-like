@@ -2,7 +2,7 @@ use bevy::prelude::Query;
 use crate::{
     physics::{Map, MapCache, Position, KrillTheaterZone, Tile, Occupier},
     character::{CharacterType, CharacterData},
-    map_brain::{CharacterBehaviorData, HumanState, NewObjective},
+    map_brain::{CharacterBehaviorData, HumanState, NewObjective}, behaviors::util::{human_panic, set_human_panic},
 };
 use super::{PathfinderBehavior, util::get_pathfinder_target, data::PathfinderGlobalData, Priority};
 
@@ -125,18 +125,9 @@ pub fn human_pathfinder(
             match character_type {
                 CharacterType::Player => {},
                 CharacterType::Lerain | CharacterType::Rumdare => {
-                    let vision = map.get_in_vision(map_cache, *position);
-                    for p in vision.iter() {
-                        if let Some(Tile::Ground { occupier, .. } | Tile::Obstacle { occupier }) = map.get(p.x as usize, p.y as usize) {
-                            let self_character_type = character_type;
-                            if let Some(Occupier { character_type: Some(CharacterType::Werewolf),  .. }) = occupier {
-                                /* TO SET PANIC GOAL */
-                                let (position, index) = data.human.panic((self_character_type.clone(), *position)).enemy(*p).get();
-                                behavior.set_goal(position, Priority::High);
-                                *state = HumanState::Panic(index);
-                                break;
-                            }
-                        }
+                    if let Some((_, target)) = human_panic(map, map_cache, *position) {
+                        // If werewolf is in sight, panic!
+                        set_human_panic(data, behavior, state, (character_type.clone(), *position), target);
                     }
                 },
                 CharacterType::Werewolf => { /* TODO */},
@@ -145,11 +136,24 @@ pub fn human_pathfinder(
         HumanState::Panic(index) => {
             // TODO, CREATE PANIC BEHAVIOR FOR HUMANS (or when werewolf is in its HUMAN FORM)!
             if behavior.is_at(*position) {
+                // If we are at our goal, do this!
                 match character_type {
                     CharacterType::Player => {},
                     CharacterType::Lerain | CharacterType::Rumdare => {
                         /* TODO REWORK */
                         *state = HumanState::Idle(Some(NewObjective::WanderButExclude(*index)));
+                    },
+                    CharacterType::Werewolf => {},
+                }
+            } else {
+                // If we have NOT reached our goal, do this!
+                match character_type {
+                    CharacterType::Player => {},
+                    CharacterType::Lerain | CharacterType::Rumdare => {
+                        if let Some((_, target)) = human_panic(map, map_cache, *position) {
+                            // We have yet to reach our goal, but we spot a werewolf!
+                            set_human_panic(data, behavior, state, (character_type.clone(), *position), target);
+                        }
                     },
                     CharacterType::Werewolf => {},
                 }

@@ -8,6 +8,7 @@ use crate::{
     map_setup::town,
     inventory::{Equipment, Inventory, Item}, behaviors::pathfinder::data::PathfinderGlobalData,
 };
+use bitflags::bitflags;
 
 #[derive(Clone)]
 pub enum Zone {
@@ -387,6 +388,97 @@ impl std::ops::Mul<i32> for Position {
     type Output = Position;
     fn mul(self, rhs: i32) -> Self::Output {
         Position::new(self.x * rhs, self.y * rhs)
+    }
+}
+
+bitflags! {
+    pub struct Quadrant: u8 {
+        const TOP_RIGHT = 1;
+        const BOTTOM_RIGHT = 4;
+        const TOP_LEFT = 2;
+        const BOTTOM_LEFT = 8;
+    }
+}
+impl From<Quadrant> for Position {
+    fn from(quadrant: Quadrant) -> Self {
+        let mut position = Position::new(0, 0);
+        if quadrant.contains(Quadrant::TOP_RIGHT) {
+            position += Position::new(1, 1);
+        }
+        if quadrant.contains(Quadrant::BOTTOM_RIGHT) {
+            position += Position::new(1, -1);
+        }
+        if quadrant.contains(Quadrant::BOTTOM_LEFT) {
+            position += Position::new(-1, -1);
+        }
+        if quadrant.contains(Quadrant::TOP_LEFT) {
+            position += Position::new(-1, 1);
+        }
+        position
+    }
+}
+impl Quadrant {
+    pub fn opposite(self) -> Quadrant {
+        if self.contains(Quadrant::TOP_RIGHT) {
+            let mut quadrant = Quadrant::BOTTOM_LEFT;
+            if self.contains(Quadrant::BOTTOM_RIGHT) {
+                quadrant |= Quadrant::TOP_LEFT;
+            }
+            if self.contains(Quadrant::BOTTOM_LEFT) {
+                quadrant |= Quadrant::TOP_RIGHT;
+            }
+            if self.contains(Quadrant::TOP_LEFT) {
+                quadrant |= Quadrant::BOTTOM_RIGHT
+            }
+            quadrant
+        } else if self.contains(Quadrant::BOTTOM_RIGHT) {
+            let mut quadrant = Quadrant::TOP_LEFT;
+            if self.contains(Quadrant::BOTTOM_LEFT) {
+                quadrant |= Quadrant::TOP_RIGHT;
+            }
+            if self.contains(Quadrant::TOP_LEFT) {
+                quadrant |= Quadrant::BOTTOM_RIGHT
+            }
+            quadrant
+        } else if self.contains(Quadrant::BOTTOM_LEFT) {
+            if self.contains(Quadrant::TOP_LEFT) {
+                Quadrant::TOP_RIGHT | Quadrant::BOTTOM_RIGHT
+            } else {
+                Quadrant::TOP_RIGHT
+            }
+        } else if self.contains(Quadrant::TOP_LEFT) {
+            Quadrant::BOTTOM_RIGHT
+        } else {
+            Quadrant::empty()
+        }
+    }
+}
+impl Position {
+    pub fn quadrant(&self, position: Position) -> Quadrant {
+        let diff = position - *self;
+        if diff.x > 0 {
+            if diff.y > 0 {
+                Quadrant::TOP_RIGHT
+            } else if diff.y < 0 {
+                Quadrant::BOTTOM_RIGHT
+            } else {
+                Quadrant::TOP_RIGHT | Quadrant::BOTTOM_RIGHT
+            }
+        } else if diff.x < 0 {
+            if diff.y > 0 {
+                Quadrant::TOP_LEFT
+            } else if diff.y < 0 {
+                Quadrant::BOTTOM_LEFT
+            } else {
+                Quadrant::TOP_LEFT | Quadrant::BOTTOM_LEFT
+            }
+        } else if diff.y > 0 {
+            Quadrant::TOP_LEFT | Quadrant::TOP_RIGHT
+        } else if diff.y < 0 {
+            Quadrant::BOTTOM_LEFT | Quadrant::BOTTOM_RIGHT
+        } else {
+            Quadrant::all()
+        }
     }
 }
 

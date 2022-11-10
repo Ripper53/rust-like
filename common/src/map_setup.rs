@@ -123,7 +123,7 @@ pub fn town(commands: &mut Commands, map: &mut Map, data: &PathfinderGlobalData)
 
         const HOME_WIDTH: i32 = MAX_HOME_POSITION.x - MIN_HOME_POSITION.x;
         const MIN_THEATER_POSITION: Position = Position::new(4 + MIN_HOME_POSITION.x, 4 + MIN_HOME_POSITION.y);
-        const MAX_THEATER_POSITION: Position = Position::new(HOME_WIDTH - 4 + MIN_HOME_POSITION.x, 4 + 10 + MIN_HOME_POSITION.y);
+        const MAX_THEATER_POSITION: Position = Position::new(HOME_WIDTH - 4 + MIN_HOME_POSITION.x, 4 + 12 + MIN_HOME_POSITION.y);
         home(
             map,
             MIN_THEATER_POSITION,
@@ -131,7 +131,7 @@ pub fn town(commands: &mut Commands, map: &mut Map, data: &PathfinderGlobalData)
             Zone::KrillTheater { zone: KrillTheaterZone::Free },
         );
         
-        let mut theater_start = MIN_THEATER_POSITION + Position::new(3, 2);
+        let mut theater_start = MIN_THEATER_POSITION + Position::new(3, 3);
         for offset_x in [5, 5, 5, 5] {
             for i in 0..4 {
                 let offset_y = i * 2;
@@ -144,7 +144,7 @@ pub fn town(commands: &mut Commands, map: &mut Map, data: &PathfinderGlobalData)
             }
             theater_start.x += offset_x + 6;
         }
-        let mut theater_start = Position::new(MAX_THEATER_POSITION.x - 3, MIN_THEATER_POSITION.y + 2);
+        let mut theater_start = Position::new(MAX_THEATER_POSITION.x - 3, MIN_THEATER_POSITION.y + 3);
         for offset_x in [5, 5, 5, 5] {
             for i in 0..4 {
                 let offset_y = i * 2;

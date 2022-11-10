@@ -1,6 +1,8 @@
 use bevy::prelude::FromWorld;
 use rand::Rng;
-use crate::{physics::Position, character::CharacterType};
+use tui::symbols::line::TOP_RIGHT;
+use crate::{physics::{Position, Quadrant}, character::CharacterType};
+use bitflags::bitflags;
 
 // TODO: MAKE OBJECTIVES CLOSER TO
 // NPC MORE LIKELY TO OCCUR!
@@ -136,6 +138,10 @@ impl<'a, const T: usize> GetPanicPointWithEnemy<'a, T> {
         }.get_except(exclude_index)
     }
     fn get_points(self) -> Vec<&'a Vec<Position>> {
+        let friendly_position = self.panic_point.friendly.1;
+        let quadrant = friendly_position.quadrant(self.enemy_position);
+        let optimal_quadrant = quadrant.opposite();
+        
         self.panic_point.points.into_iter()
             .max_by(|v1, v2| {
                 let point1 = v1[0];
